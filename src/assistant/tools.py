@@ -9,9 +9,10 @@ tools: they only happen in the execute node after human approval.
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, time, timedelta
+from zoneinfo import ZoneInfo
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, model_validator
 
 from assistant.deps import Deps
 from assistant.llm.base import ToolSpec
@@ -39,8 +40,8 @@ class GetThreadArgs(Args):
 
 
 class CheckAvailabilityArgs(Args):
-    start: datetime
-    end: datetime
+    start: AwareDatetime
+    end: AwareDatetime
     duration_minutes: int = Field(default=30, ge=15, le=240)
 
     @model_validator(mode="after")
@@ -86,10 +87,19 @@ def _get_thread(deps: Deps, args: GetThreadArgs) -> str:
     return format_thread(deps.mail.get_thread(args.thread_id))
 
 
+def working_hours(deps: Deps) -> tuple[time, time]:
+    """Working hours from preferences, e.g. "09:00-17:00"."""
+    raw = deps.memory.get_preferences().get("working_hours", "09:00-17:00")
+    start, end = (time.fromisoformat(part.strip()) for part in raw.split("-"))
+    return start, end
+
+
 def _check_availability(deps: Deps, args: CheckAvailabilityArgs) -> str:
-    hours = deps.memory.get_preferences().get("working_hours", "09:00-17:00")
-    day_start, day_end = (int(part.split(":")[0]) for part in hours.split("-"))
-    slots = deps.calendar.free_slots(args.start, args.end, timedelta(minutes=args.duration_minutes), day_start, day_end)
+    day_start, day_end = working_hours(deps)
+    # Look in the user's own time zone, whatever offset the model sent.
+    tz = ZoneInfo(deps.settings.timezone)
+    start, end = args.start.astimezone(tz), args.end.astimezone(tz)
+    slots = deps.calendar.free_slots(start, end, timedelta(minutes=args.duration_minutes), day_start, day_end)
     # Merge back-to-back slots into free periods: a week fits in a few lines
     # instead of dozens, which saves tokens and is easier for a model to read.
     periods: list[list[datetime]] = []

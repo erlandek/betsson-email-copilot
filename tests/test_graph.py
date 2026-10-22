@@ -10,11 +10,18 @@ def run(deps):
     return lambda email_id: process_email(app, deps, email_id)
 
 
-def test_emails_to_process_is_latest_inbound_per_thread(deps):
+def test_emails_to_process_is_latest_unread_inbound_per_thread(deps):
     ids = [e.id for e in emails_to_process(deps)]
-    assert len(ids) == 10
+    assert len(ids) == 10  # 15 emails, 10 threads, one email each
     assert "e01" not in ids and "e03" in ids  # older message in the same thread is skipped
     assert all(deps.mail.get_email(i).sender != "erland@example.com" for i in ids)
+
+
+def test_read_latest_message_or_own_reply_is_skipped(deps):
+    deps.mail.get_email("e15").unread = False  # user already read it
+    assert "e15" not in [e.id for e in emails_to_process(deps)]
+    deps.mail.get_email("e06").received_at = deps.mail.get_email("e07").received_at.replace(hour=23)  # own reply last
+    assert "e07" not in [e.id for e in emails_to_process(deps)]
 
 
 def test_reply_route_proposes_a_send_that_needs_approval(run):
@@ -45,6 +52,13 @@ def test_newsletter_fyi_and_spam_are_labelled_and_archived(run, deps, email_id):
     assert state["route"] == "archive" and "proposal" not in state
     email = deps.mail.get_email(email_id)
     assert email.archived and email.labels  # archived, never deleted
+
+
+def test_spam_and_newsletters_get_a_category_label(run, deps):
+    run("e12")
+    run("e10")
+    assert "Spam" in deps.mail.get_email("e12").labels
+    assert "Newsletters" in deps.mail.get_email("e10").labels
 
 
 @pytest.mark.parametrize("email_id", ["e13", "e14"])

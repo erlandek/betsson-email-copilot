@@ -12,7 +12,8 @@
     "body": "Hi Erland,\n\nCould you pull together the Q4 KPI numbers for the board pack? Active players, deposits and retention by market would be ideal.\n\nThanks,\nSofia",
     "received_at": "2026-10-19T09:12:00+02:00",
     "labels": [],
-    "headers": {}
+    "headers": {},
+    "unread": false
   },
   {
     "id": "e02",
@@ -27,7 +28,8 @@
     "body": "Hi Sofia,\n\nSure, I'll have them ready by Thursday.\n\nBest regards,\nErland",
     "received_at": "2026-10-19T10:03:00+02:00",
     "labels": [],
-    "headers": {}
+    "headers": {},
+    "unread": false
   },
   {
     "id": "e03",
@@ -42,7 +44,8 @@
     "body": "Hi Erland,\n\nThe board meeting moved to Thursday morning, so I need the numbers by Wednesday EOD. Can you also add churn by market? Let me know if that deadline is a problem.\n\nSofia",
     "received_at": "2026-10-21T08:47:00+02:00",
     "labels": [],
-    "headers": {}
+    "headers": {},
+    "unread": true
   },
   {
     "id": "e04",
@@ -57,7 +60,8 @@
     "body": "Hello Erland,\n\nWe're ready to start on the integration. Could you send us sandbox credentials and a link to the API docs? Also, what are your support hours if our developers get stuck?\n\nKind regards,\nMark Jensen\nNordwind Payments",
     "received_at": "2026-10-20T14:20:00+02:00",
     "labels": [],
-    "headers": {}
+    "headers": {},
+    "unread": true
   },
   {
     "id": "e05",
@@ -72,7 +76,8 @@
     "body": "Hi Erland,\n\nCould we set up 30 minutes next week to go through the recommendations roadmap before planning?\n\nPriya",
     "received_at": "2026-10-20T11:05:00+02:00",
     "labels": [],
-    "headers": {}
+    "headers": {},
+    "unread": false
   },
   {
     "id": "e06",
@@ -87,7 +92,8 @@
     "body": "Hi Priya,\n\nGood idea. What days suit you?\n\nBest regards,\nErland",
     "received_at": "2026-10-20T11:30:00+02:00",
     "labels": [],
-    "headers": {}
+    "headers": {},
+    "unread": false
   },
   {
     "id": "e07",
@@ -102,7 +108,8 @@
     "body": "Tuesday or Wednesday afternoon works for me. Please send an invite and add Jonas too.\n\nPriya",
     "received_at": "2026-10-21T09:15:00+02:00",
     "labels": [],
-    "headers": {}
+    "headers": {},
+    "unread": true
   },
   {
     "id": "e08",
@@ -117,7 +124,8 @@
     "body": "Hi Laura,\n\nPlease find the data processing agreement attached for signature.\n\nBest regards,\nErland",
     "received_at": "2026-10-14T15:40:00+02:00",
     "labels": [],
-    "headers": {}
+    "headers": {},
+    "unread": false
   },
   {
     "id": "e09",
@@ -132,7 +140,8 @@
     "body": "Hi Erland,\n\nOur legal team is still reviewing the agreement. I will get back to you by end of next week.\n\nBest,\nLaura",
     "received_at": "2026-10-20T16:02:00+02:00",
     "labels": [],
-    "headers": {}
+    "headers": {},
+    "unread": true
   },
   {
     "id": "e10",
@@ -150,7 +159,8 @@
     "headers": {
       "List-Unsubscribe": "<https://aiweekly.example/unsubscribe?u=8812>",
       "Precedence": "bulk"
-    }
+    },
+    "unread": true
   },
   {
     "id": "e11",
@@ -165,7 +175,8 @@
     "body": "Hi all,\n\nFYI: the office network will be down for maintenance on Saturday 25 October from 08:00 to 12:00. No action needed; VPN access is not affected.\n\nIT Service Desk",
     "received_at": "2026-10-21T10:30:00+02:00",
     "labels": [],
-    "headers": {}
+    "headers": {},
+    "unread": true
   },
   {
     "id": "e12",
@@ -180,7 +191,8 @@
     "body": "Congratulations! You have been selected to receive an exclusive prize. Claim your reward now, act now before the offer expires!",
     "received_at": "2026-10-21T03:14:00+02:00",
     "labels": [],
-    "headers": {}
+    "headers": {},
+    "unread": true
   },
   {
     "id": "e13",
@@ -195,7 +207,8 @@
     "body": "Dear Erland,\n\nPlease note that our bank details have changed. Could you please update the account for invoice INV-2291 to the new IBAN below before Friday's payment run?\n\nIBAN: GB33 BUKB 2020 1555 5555 55\n\nRegards,\nNordwind Accounts",
     "received_at": "2026-10-21T07:58:00+02:00",
     "labels": [],
-    "headers": {}
+    "headers": {},
+    "unread": true
   },
   {
     "id": "e14",
@@ -210,7 +223,8 @@
     "body": "Had a look at the deck. Some interesting bits in there. Maybe worth a call at some point, or I can just leave comments, whatever is easiest? No rush.",
     "received_at": "2026-10-21T12:40:00+02:00",
     "labels": [],
-    "headers": {}
+    "headers": {},
+    "unread": true
   },
   {
     "id": "e15",
@@ -225,6 +239,7 @@
     "body": "Hi Erland,\n\nCould you send me sandbox credentials so we can test the reporting export? And what are your support hours?\n\nThanks,\nAnna",
     "received_at": "2026-10-21T13:10:00+02:00",
     "labels": [],
-    "headers": {}
+    "headers": {},
+    "unread": true
   }
 ]

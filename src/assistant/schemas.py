@@ -8,7 +8,11 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, model_validator
+
+
+# Every datetime must carry a time zone (AwareDatetime rejects naive values), so
+# working hours and scheduling are never off by an hour around DST changes.
 
 
 class Schema(BaseModel):
@@ -29,11 +33,12 @@ class Email(Schema):
     cc: list[str] = []
     subject: str
     body: str
-    received_at: datetime
+    received_at: AwareDatetime
     labels: list[str] = []
     # Raw headers such as List-Unsubscribe. The newsletter pre-filter reads them,
     # so obvious newsletters never reach the LLM.
     headers: dict[str, str] = {}
+    unread: bool = True
     archived: bool = False
 
 
@@ -96,9 +101,9 @@ class DraftReply(Schema):
 class ScheduleProposal(Schema):
     kind: Literal["event", "task"]
     title: str
-    start: datetime | None = None
-    end: datetime | None = None
-    due: datetime | None = None
+    start: AwareDatetime | None = None
+    end: AwareDatetime | None = None
+    due: AwareDatetime | None = None
     attendees: list[str] = []
     reason: str
 
@@ -182,14 +187,14 @@ class SentRecord(Schema):
     to: list[str]
     subject: str
     body: str
-    sent_at: datetime
+    sent_at: AwareDatetime
 
 
 class CalendarEvent(Schema):
     id: str
     title: str
-    start: datetime
-    end: datetime
+    start: AwareDatetime
+    end: AwareDatetime
     attendees: list[str] = []
     action_id: str | None = None  # None for events that were already in the calendar
 
@@ -197,7 +202,7 @@ class CalendarEvent(Schema):
 class CalendarTask(Schema):
     id: str
     title: str
-    due: datetime
+    due: AwareDatetime
     action_id: str | None = None
 
 
@@ -208,7 +213,7 @@ class PreferenceRecord(Schema):
     key: str  # e.g. "sign_off", "reply_length"
     value: str
     source: Literal["seeded", "learned"]
-    updated_at: datetime
+    updated_at: AwareDatetime
 
 
 class ContactRecord(Schema):
@@ -225,4 +230,4 @@ class FeedbackRecord(Schema):
     draft_before: str
     draft_after: str | None = None
     comment: str | None = None
-    created_at: datetime
+    created_at: AwareDatetime

@@ -94,10 +94,10 @@ One entry per decision: what we chose, the alternative, and the trade-off. Newes
 - **Alternative:** route fyi to the inbox untouched instead of archiving.
 - **Trade-off:** archiving fyi follows PLAN 3.2 and keeps the inbox for things that need action. It is reversible, and the email keeps its `fyi` label.
 
-### D19. Labels are applied automatically, except unsure intent labels
-- **Choice:** the triage node applies labels straight away (low risk, reversible). Below the confidence threshold it applies only rule labels such as "Possible fraud: verify", then `human_review` adds "Needs review".
-- **Alternative:** always apply the model's intent label.
-- **Trade-off:** a wrong label on an ambiguous email would mislead the user; "Needs review" is honest about the uncertainty.
+### D19. Labels are topic tags, applied automatically
+- **Choice:** labels describe what an email is about (Finance, Legal, Partners, Internal, Reporting, IT, Meetings), never the intent, which is its own field. The triage prompt asks for one to three such tags, and `apply_priority_rules()` drops any tag that repeats an intent name. The triage node applies tags and rule warnings straight away (low risk, reversible), even when the intent goes to human review. Archived spam and newsletters also get a category label ("Spam", "Newsletters") so they stay findable.
+- **Alternative:** use the intent as the label (the first version did this).
+- **Trade-off:** the intent label duplicated information and was not useful in a mailbox. Tags are what a person files by. On an uncertain email a topic tag is still usually right even when the intent is not; "Needs review" marks the uncertainty.
 
 ### D20. A known contact classified as spam goes to human review
 - **Choice:** amendment A3 says a known contact or VIP is never spam. Instead of guessing the real intent, the rule changes the intent to fyi, caps confidence at 0.5 and adds "Spam override: known sender", so a human looks at it.
@@ -113,3 +113,20 @@ One entry per decision: what we chose, the alternative, and the trade-off. Newes
 - **Choice:** the scheduler gets a search window (next working week, Monday to Friday, `TIMEZONE=Europe/Stockholm`) computed in code; `check_availability` returns merged free periods within working hours from preferences.
 - **Alternative:** let the model work out "next week" itself.
 - **Trade-off:** models are unreliable at date arithmetic and time zones (this week is CEST, next week CET). Computing the window removes a whole class of errors and keeps the tool output to a few lines.
+
+## Fixes before Phase 3
+
+### D23. Lookalike-domain check in the fraud rules
+- **Choice:** for a sender who is not in the contact book, compare their domain with the domains of known contacts. The part before the top-level domain is compared: flagged if one contains the other ("nordwind-billing" contains "nordwind") or they are at least 80% similar by `difflib.SequenceMatcher` ("examp1e" vs "example"). A match caps confidence at 0.5 and adds "Lookalike domain: verify sender", even without payment words.
+- **Alternative:** edit distance (Levenshtein) only, or a confusables/homoglyph library.
+- **Trade-off:** standard library, a few lines, easy to explain, and it catches the two common tricks (an added word, a swapped character). It can flag a legitimate subdomain such as `mail.nordwind.example`; that only costs a human review. Homoglyphs in Unicode domains (Cyrillic "а") would need a confusables table: future work.
+
+### D24. Every datetime is time-zone aware, and only unread mail is processed
+- **Choice:** all schema datetimes use Pydantic's `AwareDatetime`, which rejects naive values. Sample data carries Stockholm offsets (+02:00 before 25 October, +01:00 after). Scheduling converts to `TIMEZONE` (Europe/Stockholm) before comparing with working hours. `Email.unread` was added, and `emails_to_process` takes the latest message of each thread only if it is unread and was not sent by the user.
+- **Alternative:** naive datetimes in local time; processing every inbound email.
+- **Trade-off:** aware datetimes cost an offset in the data, but the week of the demo crosses the switch from summer time, which is exactly where naive times go wrong. Processing one message per thread avoids triaging the same conversation three times; earlier messages still reach the agents as thread context.
+
+### D25. Working hours are enforced in code, twice
+- **Choice:** `check_availability` only returns free time inside the working hours from preferences (minutes included, e.g. 10:30-15:00). After the scheduler answers, `check_proposal()` verifies the event is on a weekday, inside working hours and free in the calendar; if not, the email goes to human review.
+- **Alternative:** trust the model to pick from the free times it was shown.
+- **Trade-off:** a real model can still invent a time; checking costs a few lines and makes "the scheduler respects working hours" a guarantee, not a hope.

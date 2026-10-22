@@ -35,5 +35,9 @@ class LongTermMemory:
     def get_preferences(self) -> dict[str, str]:
         return {key: p.value for key, p in self._preferences.items()}
 
+    def known_domains(self) -> set[str]:
+        """Domains of everyone in the contact book, used to spot lookalike senders."""
+        return {email.rsplit("@", 1)[-1] for email in self._contacts}
+
     def is_known_newsletter(self, sender: str) -> bool:
         return sender.lower() in self._newsletter_senders

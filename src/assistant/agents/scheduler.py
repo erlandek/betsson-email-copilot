@@ -9,9 +9,10 @@ from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 from assistant.agents.prompts import UNTRUSTED_NOTE, format_email
-from assistant.agents.structured import run_tool_loop
+from assistant.agents.structured import AgentError, run_tool_loop
 from assistant.deps import Deps
 from assistant.schemas import Email, Intent, ScheduleProposal, ToolResult
+from assistant.tools import working_hours
 
 SYSTEM = f"""You schedule things for the user. The user approves every proposal before it is created.
 For a meeting request, call check_availability in the given search window and propose an event
@@ -39,4 +40,18 @@ def propose_schedule(deps: Deps, email: Email, intent: Intent) -> tuple[Schedule
     result, tool_results = run_tool_loop(
         deps, "scheduler", SYSTEM, "\n".join(lines), ScheduleProposal, deps.settings.model_for("draft")
     )
+    check_proposal(deps, result.output)
     return result.output, tool_results
+
+
+def check_proposal(deps: Deps, proposal: ScheduleProposal) -> None:
+    """Verify an event in code instead of trusting the model: weekday, working hours, no clash."""
+    if proposal.kind != "event":
+        return
+    tz = ZoneInfo(deps.settings.timezone)
+    start, end = proposal.start.astimezone(tz), proposal.end.astimezone(tz)
+    day_start, day_end = working_hours(deps)
+    if start.weekday() >= 5 or start.date() != end.date() or start.time() < day_start or end.time() > day_end:
+        raise AgentError(f"proposed event {start:%a %H:%M}-{end:%H:%M} is outside working hours")
+    if not deps.calendar.is_free(proposal.start, proposal.end):
+        raise AgentError(f"proposed event {start:%a %H:%M} clashes with the calendar")

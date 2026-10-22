@@ -36,6 +36,28 @@ INTENT_KEYWORDS: dict[Intent, list[str]] = {
 
 LOW_PRIORITY_INTENTS = {Intent.newsletter, Intent.spam, Intent.fyi}
 
+# Topic tags, like the folders or labels a person would use. They describe what
+# an email is about, which the intent already does not cover.
+TAG_KEYWORDS: dict[str, list[str]] = {
+    "Finance": ["invoice", "iban", "bank details", "payment run", "payment details"],
+    "Legal": ["agreement", "contract", "legal"],
+    "Reporting": ["kpi", "board pack", "numbers"],
+    "Partners": ["integration", "sandbox", "partner", "api "],
+    "IT": ["network", "maintenance", "vpn"],
+    "Meetings": ["invite", "30 minutes", "set up", "sync"],
+    "Promotions": ["prize", "offer", "reward"],
+}
+INTERNAL_DOMAIN = "example.com"
+
+
+def _tags(email_text: str) -> list[str]:
+    lowered = email_text.lower()
+    tags = [tag for tag, words in TAG_KEYWORDS.items() if any(w in lowered for w in words)]
+    sender = _field(email_text, "From") or ""
+    if sender.lower().endswith("@" + INTERNAL_DOMAIN):
+        tags.insert(0, "Internal")
+    return tags[:3]
+
 
 def _field(text: str, name: str) -> str | None:
     match = re.search(rf"^{name}:\s*(.+)$", text, flags=re.MULTILINE)
@@ -120,7 +142,8 @@ class FakeLLM(LLMClient):
     def _triage(self, text: str) -> TriageResult:
         # Classify only the latest email; earlier messages are context for a real model.
         blocks = re.findall(r"<email>(.*?)</email>", text, flags=re.DOTALL)
-        lowered = (blocks[-1] if blocks else text).lower()
+        latest = blocks[-1] if blocks else text
+        lowered = latest.lower()
         scores = {intent: sum(lowered.count(k) for k in keys) for intent, keys in INTENT_KEYWORDS.items()}
         ranked = sorted(scores.items(), key=lambda kv: kv[1], reverse=True)  # stable: keeps dict order on ties
         (top, top_score), (_, second_score) = ranked[0], ranked[1]
@@ -136,7 +159,7 @@ class FakeLLM(LLMClient):
         return TriageResult(
             intent=intent,
             priority=priority,
-            labels=[intent.value],
+            labels=_tags(latest),
             confidence=round(confidence, 2),
             rationale=f"Keyword match for {intent.value}: {matched or 'none'}",
         )

@@ -93,3 +93,52 @@ def test_lookalike_bank_email_goes_to_review(deps):
     triage, _ = triage_email(deps, deps.mail.get_email("e13"))
     assert triage.confidence <= 0.5
     assert FRAUD_LABEL in triage.labels
+
+
+# --- Tags -----------------------------------------------------------------------
+
+
+def test_tags_are_topics_not_intents(deps):
+    from assistant.schemas import Intent as I
+
+    intents = {i.value for i in I}
+    for email_id, expected in [("e04", "Partners"), ("e09", "Legal"), ("e03", "Reporting"), ("e11", "IT")]:
+        triage, _ = triage_email(deps, deps.mail.get_email(email_id))
+        assert expected in triage.labels
+        assert not intents & {label.lower() for label in triage.labels}
+
+
+def test_rules_drop_tags_that_repeat_the_intent():
+    raw = TriageResult(intent="reply_needed", priority="low", labels=["reply_needed", "Reply needed", "Finance"],
+                       confidence=0.9, rationale="r")
+    assert apply_priority_rules(raw, make_email(), COLLEAGUE).labels == ["Finance"]
+
+
+# --- Lookalike domains ----------------------------------------------------------
+
+from assistant.agents.triage import LOOKALIKE_LABEL, lookalike_of  # noqa: E402
+
+KNOWN = {"example.com", "nordwind.example", "fjordanalytics.example"}
+
+
+def test_lookalike_domains_are_detected():
+    assert lookalike_of("accounts@nordwind-billing.example", KNOWN) == "nordwind.example"
+    assert lookalike_of("ceo@examp1e.com", KNOWN) == "example.com"
+    assert lookalike_of("anna@fjord-analytics.example", KNOWN) == "fjordanalytics.example"
+
+
+def test_known_and_unrelated_domains_are_not_flagged():
+    assert lookalike_of("mark.jensen@nordwind.example", KNOWN) is None
+    assert lookalike_of("newsletter@aiweekly.example", KNOWN) is None
+    assert lookalike_of("promo@win-big.example", KNOWN) is None
+
+
+def test_lookalike_sender_is_capped_and_labelled_even_without_payment_words():
+    email = make_email(body="Please see the attached document.", sender="mark@nordwind-billing.example")
+    out = apply_priority_rules(result(confidence=0.95), email, None, KNOWN)
+    assert out.confidence == 0.5 and LOOKALIKE_LABEL in out.labels
+
+
+def test_sample_fraud_email_gets_both_warnings(deps):
+    triage, _ = triage_email(deps, deps.mail.get_email("e13"))
+    assert FRAUD_LABEL in triage.labels and LOOKALIKE_LABEL in triage.labels

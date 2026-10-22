@@ -7,7 +7,7 @@ mock writes every change to disk, so the demo can show the new event in the file
 import json
 import uuid
 from abc import ABC, abstractmethod
-from datetime import datetime, timedelta
+from datetime import datetime, time, timedelta
 from pathlib import Path
 
 from assistant.schemas import CalendarEvent, CalendarTask, ScheduleProposal
@@ -22,7 +22,7 @@ class CalendarAdapter(ABC):
 
     @abstractmethod
     def free_slots(
-        self, start: datetime, end: datetime, duration: timedelta, day_start: int = 9, day_end: int = 17
+        self, start: datetime, end: datetime, duration: timedelta, day_start: time = time(9), day_end: time = time(17)
     ) -> list[tuple[datetime, datetime]]: ...
 
     @abstractmethod
@@ -48,18 +48,19 @@ class MockCalendarAdapter(CalendarAdapter):
         return not self.list_events(start, end)
 
     def free_slots(
-        self, start: datetime, end: datetime, duration: timedelta, day_start: int = 9, day_end: int = 17
+        self, start: datetime, end: datetime, duration: timedelta, day_start: time = time(9), day_end: time = time(17)
     ) -> list[tuple[datetime, datetime]]:
         """Free slots of `duration` on weekdays within working hours, in 30-minute steps.
 
-        A simple scan is enough for a single user's week and is easy to test.
+        Working hours are compared in the time zone of `start`, so pass a window
+        in the user's local time. A simple scan is enough for one user's week.
         """
         slots = []
         cursor = start
         step = timedelta(minutes=30)
         while cursor + duration <= end:
             slot_end = cursor + duration
-            in_hours = cursor.hour >= day_start and (slot_end.hour, slot_end.minute) <= (day_end, 0)
+            in_hours = cursor.time() >= day_start and slot_end.time() <= day_end
             same_day = slot_end.date() == cursor.date()
             if cursor.weekday() < 5 and in_hours and same_day and self.is_free(cursor, slot_end):
                 slots.append((cursor, slot_end))

@@ -21,7 +21,7 @@ from assistant.agents.drafter import draft_reply
 from assistant.agents.scheduler import propose_schedule
 from assistant.agents.structured import AgentError
 from assistant.agents.summariser import summarise_thread
-from assistant.agents.triage import FRAUD_LABEL, triage_email
+from assistant.agents.triage import FRAUD_LABEL, LOOKALIKE_LABEL, triage_email
 from assistant.deps import Deps
 from assistant.policy import requires_approval
 from assistant.schemas import (
@@ -38,6 +38,8 @@ from assistant.schemas import (
 
 NEEDS_REVIEW_LABEL = "Needs review"
 ARCHIVE_INTENTS = {Intent.newsletter, Intent.spam, Intent.fyi}
+# Mailbox categories for what gets archived, so spam and newsletters stay findable.
+CATEGORY_LABELS = {Intent.spam: "Spam", Intent.newsletter: "Newsletters"}
 
 
 class State(TypedDict, total=False):
@@ -68,13 +70,10 @@ def triage(state: State, runtime: Runtime[Deps]) -> State:
         result, _ = triage_email(deps, email)
     except AgentError as error:
         return {"errors": [str(error)], "review_reason": "Triage failed validation."}
-    # Labelling is low risk and reversible, so it happens automatically. An
-    # unsure intent label would mislead, so below the threshold only rule labels
-    # (such as the fraud warning) are applied, and human_review adds its own.
-    confident = result.confidence >= deps.settings.confidence_threshold
+    # Topic tags and rule warnings are low risk and reversible, so they are
+    # applied automatically, even when the intent itself goes to human review.
     for label in result.labels:
-        if confident or label != result.intent.value:
-            deps.mail.apply_label(email.id, label)
+        deps.mail.apply_label(email.id, label)
     return {"triage": result}
 
 
@@ -97,14 +96,20 @@ def human_review(state: State, runtime: Runtime[Deps]) -> State:
     result = state.get("triage")
     if not reason and FRAUD_LABEL in result.labels:
         reason = "Possible fraud: unknown sender asks to change payment details. Verify by phone (F05)."
+    elif not reason and LOOKALIKE_LABEL in result.labels:
+        reason = "Sender's domain imitates a known contact's domain. Verify the sender."
     elif not reason:
         reason = f"Low confidence ({result.confidence:.2f}) for {result.intent.value}."
     return {"route": "human_review", "review_reason": reason}
 
 
 def archive(state: State, runtime: Runtime[Deps]) -> State:
-    # Archive only; there is no delete (amendment A4).
-    runtime.context.mail.archive(state["email"].id)
+    # Label and archive only; there is no delete (amendment A4).
+    mail, email = runtime.context.mail, state["email"]
+    category = CATEGORY_LABELS.get(state["triage"].intent)
+    if category:
+        mail.apply_label(email.id, category)
+    mail.archive(email.id)
     return {"route": "archive"}
 
 
@@ -173,12 +178,17 @@ def build_graph():
 
 
 def emails_to_process(deps: Deps) -> list[Email]:
-    """The latest email of each thread, if someone else sent it: that is the one that may need action."""
+    """One email per thread: the latest message, if it is unread and someone else sent it.
+
+    Earlier messages are context, not separate work (the triage and summary see
+    the whole thread). A thread whose latest message is the user's own reply is
+    waiting on the other side, so it is skipped.
+    """
     latest: dict[str, Email] = {}
     for email in deps.mail.list_emails():  # oldest first, so later messages overwrite earlier ones
         latest[email.thread_id] = email
-    inbound = [e for e in latest.values() if e.sender != deps.settings.user_email]
-    return sorted(inbound, key=lambda e: e.received_at)
+    todo = [e for e in latest.values() if e.unread and e.sender != deps.settings.user_email]
+    return sorted(todo, key=lambda e: e.received_at)
 
 
 def process_email(app, deps: Deps, email_id: str) -> State:

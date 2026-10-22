@@ -1,0 +1,6 @@
+# Pinned to the versions tested. Later phases add langgraph, opentelemetry,
+# structlog, chromadb and the provider SDKs, each pinned when first used.
+pydantic==2.14.1
+pydantic-settings==2.16.1
+python-dotenv==1.2.4
+pytest==9.1.1

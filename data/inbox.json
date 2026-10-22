@@ -1,0 +1,230 @@
+[
+  {
+    "id": "e01",
+    "thread_id": "t-q4-kpis",
+    "sender": "sofia.lind@example.com",
+    "sender_name": "Sofia Lind",
+    "recipients": [
+      "erland@example.com"
+    ],
+    "cc": [],
+    "subject": "Q4 KPI numbers for the board pack",
+    "body": "Hi Erland,\n\nCould you pull together the Q4 KPI numbers for the board pack? Active players, deposits and retention by market would be ideal.\n\nThanks,\nSofia",
+    "received_at": "2026-10-19T09:12:00+02:00",
+    "labels": [],
+    "headers": {}
+  },
+  {
+    "id": "e02",
+    "thread_id": "t-q4-kpis",
+    "sender": "erland@example.com",
+    "sender_name": "Erland Ekholm",
+    "recipients": [
+      "sofia.lind@example.com"
+    ],
+    "cc": [],
+    "subject": "Re: Q4 KPI numbers for the board pack",
+    "body": "Hi Sofia,\n\nSure, I'll have them ready by Thursday.\n\nBest regards,\nErland",
+    "received_at": "2026-10-19T10:03:00+02:00",
+    "labels": [],
+    "headers": {}
+  },
+  {
+    "id": "e03",
+    "thread_id": "t-q4-kpis",
+    "sender": "sofia.lind@example.com",
+    "sender_name": "Sofia Lind",
+    "recipients": [
+      "erland@example.com"
+    ],
+    "cc": [],
+    "subject": "Re: Q4 KPI numbers for the board pack",
+    "body": "Hi Erland,\n\nThe board meeting moved to Thursday morning, so I need the numbers by Wednesday EOD. Can you also add churn by market? Let me know if that deadline is a problem.\n\nSofia",
+    "received_at": "2026-10-21T08:47:00+02:00",
+    "labels": [],
+    "headers": {}
+  },
+  {
+    "id": "e04",
+    "thread_id": "t-partner-api",
+    "sender": "mark.jensen@nordwind.example",
+    "sender_name": "Mark Jensen",
+    "recipients": [
+      "erland@example.com"
+    ],
+    "cc": [],
+    "subject": "API sandbox access for the Nordwind integration",
+    "body": "Hello Erland,\n\nWe're ready to start on the integration. Could you send us sandbox credentials and a link to the API docs? Also, what are your support hours if our developers get stuck?\n\nKind regards,\nMark Jensen\nNordwind Payments",
+    "received_at": "2026-10-20T14:20:00+02:00",
+    "labels": [],
+    "headers": {}
+  },
+  {
+    "id": "e05",
+    "thread_id": "t-roadmap-sync",
+    "sender": "priya.nair@example.com",
+    "sender_name": "Priya Nair",
+    "recipients": [
+      "erland@example.com"
+    ],
+    "cc": [],
+    "subject": "Sync on the recommendations roadmap",
+    "body": "Hi Erland,\n\nCould we set up 30 minutes next week to go through the recommendations roadmap before planning?\n\nPriya",
+    "received_at": "2026-10-20T11:05:00+02:00",
+    "labels": [],
+    "headers": {}
+  },
+  {
+    "id": "e06",
+    "thread_id": "t-roadmap-sync",
+    "sender": "erland@example.com",
+    "sender_name": "Erland Ekholm",
+    "recipients": [
+      "priya.nair@example.com"
+    ],
+    "cc": [],
+    "subject": "Re: Sync on the recommendations roadmap",
+    "body": "Hi Priya,\n\nGood idea. What days suit you?\n\nBest regards,\nErland",
+    "received_at": "2026-10-20T11:30:00+02:00",
+    "labels": [],
+    "headers": {}
+  },
+  {
+    "id": "e07",
+    "thread_id": "t-roadmap-sync",
+    "sender": "priya.nair@example.com",
+    "sender_name": "Priya Nair",
+    "recipients": [
+      "erland@example.com"
+    ],
+    "cc": [],
+    "subject": "Re: Sync on the recommendations roadmap",
+    "body": "Tuesday or Wednesday afternoon works for me. Please send an invite and add Jonas too.\n\nPriya",
+    "received_at": "2026-10-21T09:15:00+02:00",
+    "labels": [],
+    "headers": {}
+  },
+  {
+    "id": "e08",
+    "thread_id": "t-dpa",
+    "sender": "erland@example.com",
+    "sender_name": "Erland Ekholm",
+    "recipients": [
+      "laura.berg@fjordanalytics.example"
+    ],
+    "cc": [],
+    "subject": "Data processing agreement for signature",
+    "body": "Hi Laura,\n\nPlease find the data processing agreement attached for signature.\n\nBest regards,\nErland",
+    "received_at": "2026-10-14T15:40:00+02:00",
+    "labels": [],
+    "headers": {}
+  },
+  {
+    "id": "e09",
+    "thread_id": "t-dpa",
+    "sender": "laura.berg@fjordanalytics.example",
+    "sender_name": "Laura Berg",
+    "recipients": [
+      "erland@example.com"
+    ],
+    "cc": [],
+    "subject": "Re: Data processing agreement for signature",
+    "body": "Hi Erland,\n\nOur legal team is still reviewing the agreement. I will get back to you by end of next week.\n\nBest,\nLaura",
+    "received_at": "2026-10-20T16:02:00+02:00",
+    "labels": [],
+    "headers": {}
+  },
+  {
+    "id": "e10",
+    "thread_id": "t-newsletter-aiweekly",
+    "sender": "newsletter@aiweekly.example",
+    "sender_name": "AI Engineering Weekly",
+    "recipients": [
+      "erland@example.com"
+    ],
+    "cc": [],
+    "subject": "AI Engineering Weekly, issue #142",
+    "body": "This week in AI engineering: evaluating agents in production, cheaper structured outputs, and a deep dive on tracing LLM apps.\n\nYou are receiving this because you subscribed. Unsubscribe at any time.",
+    "received_at": "2026-10-21T06:00:00+02:00",
+    "labels": [],
+    "headers": {
+      "List-Unsubscribe": "<https://aiweekly.example/unsubscribe?u=8812>",
+      "Precedence": "bulk"
+    }
+  },
+  {
+    "id": "e11",
+    "thread_id": "t-it-maintenance",
+    "sender": "it-servicedesk@example.com",
+    "sender_name": "IT Service Desk",
+    "recipients": [
+      "all-staff@example.com"
+    ],
+    "cc": [],
+    "subject": "Office network maintenance on Saturday",
+    "body": "Hi all,\n\nFYI: the office network will be down for maintenance on Saturday 25 October from 08:00 to 12:00. No action needed; VPN access is not affected.\n\nIT Service Desk",
+    "received_at": "2026-10-21T10:30:00+02:00",
+    "labels": [],
+    "headers": {}
+  },
+  {
+    "id": "e12",
+    "thread_id": "t-spam-prize",
+    "sender": "promo@win-big.example",
+    "sender_name": "Rewards Team",
+    "recipients": [
+      "erland@example.com"
+    ],
+    "cc": [],
+    "subject": "Congratulations! You have been selected",
+    "body": "Congratulations! You have been selected to receive an exclusive prize. Claim your reward now, act now before the offer expires!",
+    "received_at": "2026-10-21T03:14:00+02:00",
+    "labels": [],
+    "headers": {}
+  },
+  {
+    "id": "e13",
+    "thread_id": "t-bank-details",
+    "sender": "accounts@nordwind-billing.example",
+    "sender_name": "Nordwind Accounts",
+    "recipients": [
+      "erland@example.com"
+    ],
+    "cc": [],
+    "subject": "Updated bank details for invoice INV-2291",
+    "body": "Dear Erland,\n\nPlease note that our bank details have changed. Could you please update the account for invoice INV-2291 to the new IBAN below before Friday's payment run?\n\nIBAN: GB33 BUKB 2020 1555 5555 55\n\nRegards,\nNordwind Accounts",
+    "received_at": "2026-10-21T07:58:00+02:00",
+    "labels": [],
+    "headers": {}
+  },
+  {
+    "id": "e14",
+    "thread_id": "t-deck-thoughts",
+    "sender": "jonas.ek@example.com",
+    "sender_name": "Jonas Ek",
+    "recipients": [
+      "erland@example.com"
+    ],
+    "cc": [],
+    "subject": "Thoughts on the deck",
+    "body": "Had a look at the deck. Some interesting bits in there. Maybe worth a call at some point, or I can just leave comments, whatever is easiest? No rush.",
+    "received_at": "2026-10-21T12:40:00+02:00",
+    "labels": [],
+    "headers": {}
+  },
+  {
+    "id": "e15",
+    "thread_id": "t-partner-sandbox-fjord",
+    "sender": "anna.holm@fjordanalytics.example",
+    "sender_name": "Anna Holm",
+    "recipients": [
+      "erland@example.com"
+    ],
+    "cc": [],
+    "subject": "Sandbox access for Fjord Analytics",
+    "body": "Hi Erland,\n\nCould you send me sandbox credentials so we can test the reporting export? And what are your support hours?\n\nThanks,\nAnna",
+    "received_at": "2026-10-21T13:10:00+02:00",
+    "labels": [],
+    "headers": {}
+  }
+]

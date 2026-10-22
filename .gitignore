@@ -1,1 +1,13 @@
+# Secrets
 .env
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Runtime output (mock mailbox state, logs, local databases)
+runtime/
+logs/
+*.db

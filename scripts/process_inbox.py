@@ -2,8 +2,8 @@
 
     python scripts/process_inbox.py
 
-Uses LLM_PROVIDER from .env (fake by default). Nothing is sent: Phase 2 stops
-at the proposed action; approval and execution arrive in Phase 3.
+Uses LLM_PROVIDER from .env (fake by default). Nothing is approved or sent:
+every run stops at the approval step. Use scripts/copilot.py run to decide.
 """
 
 import sys
@@ -23,9 +23,9 @@ def describe(state) -> str:
     if "proposal" in state:
         p = state["proposal"]
         if p.action_type.value == "send_email":
-            return f"Draft reply to {', '.join(p.payload.to)} (facts {', '.join(p.payload.facts_used) or 'none'})"
+            return f"Awaiting approval: reply to {', '.join(p.payload.to)} (facts {', '.join(p.payload.facts_used) or 'none'})"
         when = p.payload.start or p.payload.due
-        return f"{p.action_type.value}: '{p.payload.title}' at {when:%a %d %b %H:%M}"
+        return f"Awaiting approval: {p.action_type.value} '{p.payload.title}' {when:%a %d %b %H:%M}"
     return "Labelled and archived"
 
 

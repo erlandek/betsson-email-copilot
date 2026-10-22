@@ -11,7 +11,7 @@ from pathlib import Path
 from assistant.adapters import CalendarAdapter, MailAdapter, MockCalendarAdapter, MockMailAdapter
 from assistant.config import Settings
 from assistant.llm import LLMClient, get_llm_client
-from assistant.memory.knowledge import KnowledgeBase
+from assistant.memory.knowledge import KeywordKnowledgeBase, open_knowledge
 from assistant.memory.long_term import LongTermMemory
 
 
@@ -22,11 +22,11 @@ class Deps:
     mail: MailAdapter
     calendar: CalendarAdapter
     memory: LongTermMemory
-    knowledge: KnowledgeBase
+    knowledge: KeywordKnowledgeBase  # or its Chroma subclass
 
 
 def build_deps(settings: Settings, calendar_path: Path | None = None, sent_path: Path | None = None) -> Deps:
-    """Wire the mock adapters to the sample data. Writes go to runtime/, never to data/."""
+    """Wire the mock adapters and memory to the sample data. Writes go to runtime/, never to data/."""
     data, runtime = settings.data_dir, settings.runtime_dir
     calendar_path = calendar_path or runtime / "calendar.json"
     if not calendar_path.exists():
@@ -38,6 +38,6 @@ def build_deps(settings: Settings, calendar_path: Path | None = None, sent_path:
         llm=get_llm_client(settings),
         mail=MockMailAdapter(data / "inbox.json", sent_path or runtime / "sent.json"),
         calendar=MockCalendarAdapter(calendar_path),
-        memory=LongTermMemory.from_seed(data / "seed_memory.json"),
-        knowledge=KnowledgeBase.from_markdown(data / "org_facts.md"),
+        memory=LongTermMemory.open(runtime / "memory.db", data / "seed_memory.json"),
+        knowledge=open_knowledge(data / "org_facts.md", settings.knowledge_backend),
     )

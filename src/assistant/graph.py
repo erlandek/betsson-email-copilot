@@ -9,27 +9,44 @@ testable and free. The workers are where the agentic behaviour lives.
                               -> summarise -> draft -> propose_action   (reply_needed)
                               -> schedule -> propose_action             (meeting_request, follow_up)
 
-Phase 3 adds human approval (interrupt), execution and memory updates after propose_action.
+    propose_action -> human_approval (interrupt: approve / edit / reject)
+                   -> execute (approve or edit) -> update_memory
+                   -> update_memory (reject)
+
+The graph pauses at human_approval. A checkpointer saves the state, so the
+decision can arrive minutes or days later, even in a new process.
 """
 
+from collections.abc import Callable
+from datetime import datetime, timezone
 from typing import TypedDict
 
+from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.runtime import Runtime
+from langgraph.types import Command, interrupt
+from pydantic import ValidationError
 
 from assistant.agents.drafter import draft_reply
+from assistant.agents.learner import learn_from_edit
 from assistant.agents.scheduler import propose_schedule
 from assistant.agents.structured import AgentError
 from assistant.agents.summariser import summarise_thread
 from assistant.agents.triage import FRAUD_LABEL, LOOKALIKE_LABEL, triage_email
+from assistant.approval import build_view, check_decision, describe, final_payload, make_action_id
+from assistant.checkpoints import serializer
 from assistant.deps import Deps
 from assistant.policy import requires_approval
 from assistant.schemas import (
     ActionProposal,
     ActionType,
+    ContactRecord,
     DraftReply,
     Email,
+    FeedbackRecord,
+    HumanDecision,
     Intent,
+    PreferenceUpdate,
     ScheduleProposal,
     ThreadSummary,
     ToolResult,
@@ -53,6 +70,10 @@ class State(TypedDict, total=False):
     proposal: ActionProposal
     route: str  # which branch the router chose, for logs and the demo table
     review_reason: str
+    decision: HumanDecision
+    action_id: str
+    outcome: str  # what actually happened, in words
+    learned: list[PreferenceUpdate]
     errors: list[str]
 
 
@@ -154,14 +175,104 @@ def propose_action(state: State, runtime: Runtime[Deps]) -> State:
     return {"proposal": proposal.model_copy(update={"requires_approval": needs_approval}), "route": route}
 
 
+def human_approval(state: State, runtime: Runtime[Deps]) -> State:
+    """Pause until a human approves, edits or rejects the proposal.
+
+    interrupt() saves the state and stops the run. When the run is resumed with
+    Command(resume=decision), LangGraph runs this node again from the top and
+    interrupt() returns the decision instead of pausing. So nothing before
+    interrupt() may have side effects.
+    """
+    view = build_view(state, runtime.context)
+    while True:
+        raw = interrupt(view)
+        try:
+            decision = HumanDecision.model_validate(raw)
+            check_decision(state["proposal"], decision)
+            return {"decision": decision}
+        except ValidationError as error:
+            # Ask again rather than act on an invalid edit.
+            view = {**view, "error": f"Invalid decision: {error.errors(include_url=False)}"}
+
+
+def route_after_proposal(state: State) -> str:
+    return "human_approval" if state["proposal"].requires_approval else "execute"
+
+
+def route_after_approval(state: State) -> str:
+    return "update_memory" if state["decision"].decision == "reject" else "execute"
+
+
+def execute(state: State, runtime: Runtime[Deps]) -> State:
+    """Carry out the approved action exactly once (amendment A7).
+
+    The action_id is derived from the email and the final payload before acting,
+    and the adapters are asked for it first. A resumed or retried run finds the
+    earlier record and does nothing.
+    """
+    deps, proposal, email = runtime.context, state["proposal"], state["email"]
+    payload = final_payload(state)
+    action_id = make_action_id(email.id, proposal, payload)
+
+    if proposal.action_type == ActionType.send_email:
+        done = deps.mail.find_sent(action_id)
+        if not done:
+            deps.mail.send(payload, email.thread_id, action_id)
+        what = f"email to {', '.join(payload.to)}"
+    else:
+        done = deps.calendar.find_by_action_id(action_id)
+        if not done:
+            create = deps.calendar.create_event if payload.kind == "event" else deps.calendar.create_task
+            create(payload, action_id)
+        what = f"{payload.kind} '{payload.title}'"
+    outcome = f"Already done earlier: {what}" if done else f"Done: {what}"
+    return {"action_id": action_id, "outcome": outcome}
+
+
+def update_memory(state: State, runtime: Runtime[Deps]) -> State:
+    """Write to long-term memory, only from the human decision (amendment A8)."""
+    deps, proposal = runtime.context, state["proposal"]
+    decision = state.get("decision")
+    if decision is None:  # executed without approval (risk_based mode): nothing was decided
+        return {}
+
+    before = describe(proposal.payload)
+    after = describe(decision.edited_payload) if decision.decision == "edit" else None
+    deps.memory.add_feedback(FeedbackRecord(
+        email_id=state["email"].id, decision=decision.decision, draft_before=before, draft_after=after,
+        comment=decision.comment, created_at=datetime.now(timezone.utc),
+    ))
+
+    update: State = {}
+    if decision.decision == "reject":
+        update["outcome"] = f"Rejected: {decision.comment or 'no reason given'}"
+    is_reply = proposal.action_type == ActionType.send_email
+    if is_reply and decision.decision != "reject":
+        # Replying to someone is the user's decision to correspond with them.
+        for address in final_payload(state).to:
+            if deps.memory.get_contact(address) is None:
+                deps.memory.upsert_contact(ContactRecord(email=address, relationship="replied to"))
+    if is_reply and decision.decision == "edit":
+        try:
+            learned = learn_from_edit(deps, before, after)
+        except AgentError as error:
+            return {**update, "errors": [*state.get("errors", []), str(error)]}
+        for item in learned:
+            deps.memory.set_preference(item.key, item.value, source="learned")
+        update["learned"] = learned
+    return update
+
+
 # --- Graph -------------------------------------------------------------------
 
 
-def build_graph():
+def build_graph(checkpointer=None):
+    """Compile the graph. Without a checkpointer an in-memory one is used (tests, one-off runs)."""
     graph = StateGraph(State, context_schema=Deps)
     for name, node in [
         ("fetch", fetch), ("triage", triage), ("human_review", human_review), ("archive", archive),
         ("summarise", summarise), ("draft", draft), ("schedule", schedule), ("propose_action", propose_action),
+        ("human_approval", human_approval), ("execute", execute), ("update_memory", update_memory),
     ]:
         graph.add_node(name, node)
 
@@ -172,9 +283,12 @@ def build_graph():
                                 ["human_review", "draft"])
     graph.add_conditional_edges("draft", route_after_worker, ["human_review", "propose_action"])
     graph.add_conditional_edges("schedule", route_after_worker, ["human_review", "propose_action"])
-    for terminal in ("human_review", "archive", "propose_action"):
+    graph.add_conditional_edges("propose_action", route_after_proposal, ["human_approval", "execute"])
+    graph.add_conditional_edges("human_approval", route_after_approval, ["execute", "update_memory"])
+    graph.add_edge("execute", "update_memory")
+    for terminal in ("human_review", "archive", "update_memory"):
         graph.add_edge(terminal, END)
-    return graph.compile()
+    return graph.compile(checkpointer=checkpointer or InMemorySaver(serde=serializer()))
 
 
 def emails_to_process(deps: Deps) -> list[Email]:
@@ -191,6 +305,37 @@ def emails_to_process(deps: Deps) -> list[Email]:
     return sorted(todo, key=lambda e: e.received_at)
 
 
-def process_email(app, deps: Deps, email_id: str) -> State:
+Decide = Callable[[dict], HumanDecision | None]
+
+
+def process_email(app, deps: Deps, email_id: str, decide: Decide | None = None) -> State:
+    """Run one email to the end, or until it waits for a human.
+
+    Each email is its own checkpointer thread (thread_id = email id), so:
+    - a finished email is not processed again;
+    - an email waiting for approval is resumed, even from a new process.
+    `decide` gets the approval view and returns a HumanDecision, or None to
+    leave it pending. Without `decide`, runs stop at the approval step.
+    """
     # recursion_limit is LangGraph's step cap: a hard stop if routing ever looped.
-    return app.invoke({"email_id": email_id}, context=deps, config={"recursion_limit": 25})
+    config = {"configurable": {"thread_id": email_id}, "recursion_limit": 25}
+    snapshot = app.get_state(config)
+    if snapshot.values and not snapshot.next:
+        return snapshot.values  # finished earlier
+    if snapshot.next:
+        result = {**snapshot.values, "__interrupt__": snapshot.interrupts}  # waiting for a decision
+    else:
+        result = app.invoke({"email_id": email_id}, config, context=deps)
+
+    while result.get("__interrupt__") and decide:
+        decision = decide(result["__interrupt__"][0].value)
+        if decision is None:
+            break
+        result = app.invoke(Command(resume=decision.model_dump(mode="json")), config, context=deps)
+    return result
+
+
+def pending_view(state: State) -> dict | None:
+    """The approval view if this run is waiting for a human, else None."""
+    interrupts = state.get("__interrupt__")
+    return interrupts[0].value if interrupts else None

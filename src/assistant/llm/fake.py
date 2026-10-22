@@ -21,7 +21,17 @@ import re
 from datetime import datetime, timedelta
 
 from assistant.llm.base import LLMClient, LLMError, LLMResult, Message, T, ToolSpec
-from assistant.schemas import DraftReply, Intent, Priority, ScheduleProposal, ThreadSummary, ToolCall, TriageResult
+from assistant.schemas import (
+    DraftReply,
+    Intent,
+    LearnedPreferences,
+    PreferenceUpdate,
+    Priority,
+    ScheduleProposal,
+    ThreadSummary,
+    ToolCall,
+    TriageResult,
+)
 
 # Keyword cues per intent. Order matters on ties: earlier intents win, and a tie
 # also lowers confidence so the email is sent to human review.
@@ -115,6 +125,7 @@ class FakeLLM(LLMClient):
             ThreadSummary: self._summary,
             DraftReply: self._draft,
             ScheduleProposal: self._schedule,
+            LearnedPreferences: self._learn,
         }
         if schema not in handlers:
             raise LLMError(f"FakeLLM has no handler for {schema.__name__}")
@@ -197,6 +208,21 @@ class FakeLLM(LLMClient):
             tone="concise" if short else "friendly",
             facts_used=[fact_id for fact_id, _ in facts],
         )
+
+    def _learn(self, text: str) -> LearnedPreferences:
+        """Two simple diff rules: a new last line is a sign-off, a much shorter draft means short replies."""
+        before = re.search(r"Draft before:\n<<<\n(.*?)\n>>>", text, flags=re.DOTALL)
+        after = re.search(r"Draft after:\n<<<\n(.*?)\n>>>", text, flags=re.DOTALL)
+        if not before or not after:
+            return LearnedPreferences()
+        before_text, after_text = before.group(1).strip(), after.group(1).strip()
+        updates = []
+        last_before, last_after = before_text.splitlines()[-1].strip(), after_text.splitlines()[-1].strip()
+        if last_after and last_after != last_before and len(last_after) <= 40:
+            updates.append(PreferenceUpdate(key="sign_off", value=last_after))
+        if len(after_text) < 0.7 * len(before_text):
+            updates.append(PreferenceUpdate(key="reply_length", value="short"))
+        return LearnedPreferences(updates=updates)
 
     def _schedule(self, text: str) -> ScheduleProposal:
         subject = _latest_field(text, "Subject") or "Follow-up"

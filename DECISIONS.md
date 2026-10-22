@@ -104,7 +104,7 @@ One entry per decision: what we chose, the alternative, and the trade-off. Newes
 - **Alternative:** silently relabel it as reply_needed.
 - **Trade-off:** one extra item in the review queue, against the risk of auto-drafting a reply to a compromised colleague account.
 
-### D21. Contacts, preferences and org facts are read-only stand-ins until Phase 3
+### D21. Contacts, preferences and org facts are read-only stand-ins until Phase 3 (superseded by D30 and D31)
 - **Choice:** `LongTermMemory` loads contacts, preferences and known newsletter senders from `data/seed_memory.json`; `KnowledgeBase` searches `org_facts.md` by keyword overlap (at least two shared words). Phase 3 moves memory to SQLite and knowledge to Chroma behind the same methods.
 - **Alternative:** build SQLite and Chroma now.
 - **Trade-off:** keeps this phase to agents and routing, as the plan's time plan intends. Keyword search is crude (it misses synonyms such as "docs" vs "documentation"), which is exactly the point the Chroma swap will demonstrate.
@@ -130,3 +130,50 @@ One entry per decision: what we chose, the alternative, and the trade-off. Newes
 - **Choice:** `check_availability` only returns free time inside the working hours from preferences (minutes included, e.g. 10:30-15:00). After the scheduler answers, `check_proposal()` verifies the event is on a weekday, inside working hours and free in the calendar; if not, the email goes to human review.
 - **Alternative:** trust the model to pick from the free times it was shown.
 - **Trade-off:** a real model can still invent a time; checking costs a few lines and makes "the scheduler respects working hours" a guarantee, not a hope.
+
+## Phase 3: approval, execution, memory and learning
+
+### D26. Approval is an `interrupt()` inside a `human_approval` node
+- **Choice:** after `propose_action`, the graph routes to `human_approval` when `requires_approval()` says so (always, with `APPROVAL_MODE=all`). The node builds the approval view (triage, summary, proposal, facts used: amendment A6) and calls `interrupt(view)`. The run stops and the state is checkpointed. Resuming with `Command(resume=decision)` re-runs the node and `interrupt()` returns the decision. An invalid decision (for example an edit that turns an email into a task) is not acted on; the node asks again with the error in the view.
+- **Alternative:** `interrupt_before=["execute"]` on compile, with the decision written into the state from outside.
+- **Trade-off:** `interrupt()` keeps the question and the validation of the answer in one readable node and is the current LangGraph recommendation. The catch, worth knowing in an interview: the node re-runs from the top on resume, so nothing before `interrupt()` may have side effects.
+
+### D27. Deterministic `action_id` for exactly-once execution (amendment A7)
+- **Choice:** before acting, `execute` computes `action_id = sha256(email id, action type, final payload)` and asks the adapter whether that id already exists (`find_sent`, `find_by_action_id`). Only if not does it send or create, storing the id with the record. The adapters also refuse duplicates (D7).
+- **Alternative:** a random UUID created in the node and saved to the state before acting.
+- **Trade-off:** a random id saved in the same node is lost if the process dies between acting and checkpointing, and the retry would make a new id and act twice; a deterministic id survives that crash. An edited payload is a genuinely different action and gets a different id. Re-approving an identical action for the same email is treated as a duplicate, which is the safe default.
+
+### D28. One checkpointer thread per email, in SQLite
+- **Choice:** `SqliteSaver` in `runtime/checkpoints.db`, with `thread_id` = email id. `process_email` looks at the saved state first: finished emails are not reprocessed, emails waiting for approval are resumed (even in a new process), new emails start fresh.
+- **Alternative:** `thread_id` = email thread id, as first written in PLAN section 5.
+- **Trade-off:** a mail thread receives new messages over time, and reusing its run would carry stale keys (an old draft, an old decision) into the new run. One run per email is clean; the thread's history still reaches the agents through `get_thread`.
+
+### D29. Checkpoints only deserialise our own schema classes
+- **Choice:** the checkpointer's serializer is given an allowlist of the Pydantic models and enums in `assistant.schemas` (`allowed_msgpack_modules`).
+- **Alternative:** the default, which accepts any class and warns.
+- **Trade-off:** LangGraph 1.x warns that loading arbitrary classes from a checkpoint database is a code-execution risk and will block it in a future version. The allowlist removes the warning and the risk, and needs no maintenance because it is built from the schemas module.
+
+### D30. Long-term memory in SQLite, written only from human decisions (amendment A8)
+- **Choice:** `runtime/memory.db` with four tables: preferences (key, value, source seeded/learned, updated_at), contacts, feedback (decision, our draft before, the human's version after, comment) and newsletter senders. Seeded from `data/seed_memory.json` the first time. Writes happen only in `update_memory`, after a human decision: feedback for every decision, learned preferences from edits, and the recipient of an approved reply becomes a contact ("replied to").
+- **Alternative:** PLAN section 5 said new senders are added to contacts automatically.
+- **Trade-off:** adding every sender would let any email make itself a "known contact", which would switch off the fraud and lookalike checks (they only apply to unknown senders). Adding a contact only when the user chooses to reply follows A8. A test checks that processing emails without decisions writes nothing.
+
+### D31. Chroma with a local embedding model for org facts
+- **Choice:** `ChromaKnowledgeBase` builds an in-memory Chroma collection from `org_facts.md` at start-up, using Chroma's built-in all-MiniLM-L6-v2 model (runs locally, downloaded once, about 80 MB, no API key). Facts further than cosine distance 0.65 are dropped (tuned on the sample inbox). `KNOWLEDGE_BACKEND=keyword` switches to word overlap; most tests use it to stay fast.
+- **Alternative:** an embeddings API (needs a key, breaks the no-keys demo), or a persistent Chroma database.
+- **Trade-off:** semantic search finds "docs" in a fact about "documentation", which word overlap misses. The cost is a one-time download and a heavier dependency. Rebuilding from the markdown file each start keeps the store and the file in sync and costs well under a second for ten facts.
+
+### D32. Learning loop with a fixed set of learnable keys
+- **Choice:** when the human edits a draft, `learn_from_edit()` asks the small model for `LearnedPreferences`: updates limited to sign_off, reply_length, greeting and tone (max four, 100 characters each). FakeLLM uses two diff rules: a new last line is a sign-off; a draft cut by over 30% means short replies. The drafter's `get_preferences` tool returns the preferences plus the two most recent edits as examples.
+- **Alternative:** store free-text "lessons" from the model, or only store examples.
+- **Trade-off:** fixed keys can be shown, explained and reset, and a manipulated edit cannot create new kinds of memory. Examples carry nuance the keys miss, so the drafter gets both.
+
+### D33. A small Typer CLI, launched through `scripts/copilot.py`
+- **Choice:** `run` processes unread email and asks approve, edit, reject or skip for each proposal (skip leaves it pending for the next run); `memory` and `outbox` show what was learned, sent and scheduled. Editing a draft is multi-line input ending with a line containing ".". `process_email(..., decide=...)` takes any function, so tests and the notebook pass scripted decisions.
+- **Alternative:** a web UI, or opening the user's text editor for edits.
+- **Trade-off:** a terminal is enough to demonstrate the loop and works the same on Windows and Linux. Typer in this version no longer exposes an editor helper, and multi-line input avoids depending on one.
+
+### D34. The human review queue is a mailbox label
+- **Choice:** low-confidence, fraud, lookalike and failed runs end in `human_review`, which labels the email "Needs review" and records the reason in the run's state.
+- **Alternative:** a separate review table or an interrupt that blocks the run.
+- **Trade-off:** the user already lives in their mailbox, and nothing outgoing is proposed for these emails, so there is nothing to approve yet. A dedicated review UI is future work.

@@ -26,5 +26,7 @@ def calendar(tmp_path: Path) -> MockCalendarAdapter:
 @pytest.fixture
 def deps(tmp_path: Path) -> Deps:
     """Fake LLM, mock adapters on the sample data, all writes under tmp_path."""
-    settings = Settings(_env_file=None, data_dir=DATA_DIR, runtime_dir=tmp_path / "runtime")
+    # Keyword knowledge search keeps the suite fast; test_memory.py covers Chroma.
+    settings = Settings(_env_file=None, data_dir=DATA_DIR, runtime_dir=tmp_path / "runtime",
+                        knowledge_backend="keyword")
     return build_deps(settings)

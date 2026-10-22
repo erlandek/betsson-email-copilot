@@ -78,7 +78,11 @@ def _search_knowledge(deps: Deps, args: SearchKnowledgeArgs) -> str:
 
 
 def _get_preferences(deps: Deps, args: GetPreferencesArgs) -> str:
-    return "\n".join(f"Preference {key}: {value}" for key, value in deps.memory.get_preferences().items())
+    lines = [f"Preference {key}: {value}" for key, value in sorted(deps.memory.get_preferences().items())]
+    # The two most recent human edits show the wanted style better than any rule.
+    for edit in deps.memory.recent_edits(2):
+        lines.append(f"Example of a draft the user edited.\nBefore:\n{edit.draft_before}\nAfter:\n{edit.draft_after}")
+    return "\n".join(lines)
 
 
 def _get_thread(deps: Deps, args: GetThreadArgs) -> str:

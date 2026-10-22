@@ -2,6 +2,7 @@ import json
 from datetime import datetime, timezone
 
 import pytest
+from conftest import DATA_DIR
 from pydantic import ValidationError
 
 from assistant.schemas import (
@@ -13,7 +14,6 @@ from assistant.schemas import (
     ScheduleProposal,
     TriageResult,
 )
-from conftest import DATA_DIR
 
 NOW = datetime(2026, 10, 27, 15, 0, tzinfo=timezone.utc)
 DRAFT = DraftReply(to=["a@example.com"], subject="Re: hi", body="Hello")

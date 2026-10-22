@@ -35,6 +35,8 @@ class Settings(BaseSettings):
     max_tool_calls: int = Field(default=4, ge=1)
     user_email: str = "erland@example.com"  # whose mailbox this is
     timezone: str = "Europe/Stockholm"  # the user's time zone, for working hours and scheduling
+    # chroma: semantic search with a local embedding model; keyword: word overlap, no download.
+    knowledge_backend: Literal["chroma", "keyword"] = "chroma"
 
     data_dir: Path = Path("data")
     runtime_dir: Path = Path("runtime")  # mock mailbox state (sent.json, calendar.json)

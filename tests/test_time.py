@@ -5,13 +5,12 @@ from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 import pytest
+from conftest import DATA_DIR
 from pydantic import ValidationError
 
 from assistant.agents.scheduler import check_proposal, next_week_window, propose_schedule
 from assistant.agents.structured import AgentError
-from assistant.memory.long_term import LongTermMemory
 from assistant.schemas import Email, Intent, ScheduleProposal
-from conftest import DATA_DIR
 
 STOCKHOLM = ZoneInfo("Europe/Stockholm")
 
@@ -41,9 +40,7 @@ def test_next_week_window_crosses_the_dst_change_correctly():
 
 
 def with_hours(deps, hours: str):
-    prefs = [p for p in deps.memory._preferences.values() if p.key != "working_hours"]
-    prefs.append(prefs[0].model_copy(update={"key": "working_hours", "value": hours}))
-    deps.memory = LongTermMemory(list(deps.memory._contacts.values()), prefs, set())
+    deps.memory.set_preference("working_hours", hours, source="seeded")
     return deps
 
 

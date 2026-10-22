@@ -4,12 +4,10 @@ Enums and Literals keep LLM outputs bounded: a model cannot invent a new intent
 or decision, because validation rejects anything outside the allowed values.
 """
 
-from datetime import datetime
 from enum import Enum
 from typing import Any, Literal
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, model_validator
-
 
 # Every datetime must carry a time zone (AwareDatetime rejects naive values), so
 # working hours and scheduling are never off by an hour around DST changes.
@@ -174,6 +172,20 @@ class ToolResult(Schema):
     result: Any = None
     error: str | None = None
     latency_ms: float = 0.0
+
+
+# --- Learning from edits -------------------------------------------------------
+
+
+class PreferenceUpdate(Schema):
+    # Only these keys can be learned. A model reading a manipulated edit cannot
+    # invent new memory fields such as "trusted_iban".
+    key: Literal["sign_off", "reply_length", "greeting", "tone"]
+    value: str = Field(min_length=1, max_length=100)
+
+
+class LearnedPreferences(Schema):
+    updates: list[PreferenceUpdate] = Field(default=[], max_length=4)
 
 
 # --- Records written by the mock adapters ----------------------------------

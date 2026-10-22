@@ -30,7 +30,7 @@ def call_structured(deps: Deps, system: str, user: str, schema: type[T], model: 
             return deps.llm.generate(system, retry_user, schema, model)
         except (ValidationError, LLMError) as second_error:
             _count_failure(deps, schema, second_error)
-            raise AgentError(f"{schema.__name__} failed validation twice: {second_error}") from second_error
+            raise AgentError(f"no valid {schema.__name__} after one retry: {second_error}") from second_error
 
 
 def _count_failure(deps: Deps, schema: type, error: Exception) -> None:
@@ -100,7 +100,7 @@ def run_tool_loop(
         except (ValidationError, LLMError) as error:
             _count_failure(deps, schema, error)
             if retried:
-                raise AgentError(f"{agent}: {schema.__name__} failed validation twice: {error}") from error
+                raise AgentError(f"{agent}: no valid {schema.__name__} after one retry: {error}") from error
             retried = True
             messages.append(Message(role="user", content=f"Your previous answer was invalid: {error}. Answer again."))
             continue

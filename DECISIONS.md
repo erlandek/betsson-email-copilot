@@ -49,7 +49,7 @@ One entry per decision: what we chose, the alternative, and the trade-off. Newes
 - **Alternative:** canned answers keyed by email id.
 - **Trade-off:** keyword rules are cruder than a model, but they react to the input (so edits, preferences and new emails behave sensibly), stay fully deterministic and need no keys. It relies on a simple prompt convention (`From:`, `Subject:`, `Body:`, `[F01] fact`, `Preference key: value`, `Free slot:`, `Due:`) that real prompts will follow anyway.
 
-### D10. Real providers are stubs and their SDKs are imported lazily
+### D10. Real providers are stubs and their SDKs are imported lazily (superseded by D35)
 - **Choice:** `OpenAIClient` and `AnthropicClient` check for their key at construction and raise `NotImplementedError` on `generate`. The factory imports them only when selected.
 - **Alternative:** implement them now.
 - **Trade-off:** fake mode installs and runs without any provider SDK. The real implementations are written in a later phase, after checking the installed SDK versions and current docs as the working rules require.
@@ -70,7 +70,7 @@ One entry per decision: what we chose, the alternative, and the trade-off. Newes
 - **Trade-off:** a little formatting discipline, but drafts can cite `facts_used` by ID and the approval view can show exactly which facts a draft relied on (amendment A6).
 
 ### D14. PLAN.md section 15 defaults
-- **Choice:** until Erland says otherwise, follow the recommended options: LangGraph, Chroma for org facts, JSONL traces with optional Jaeger, and a GitHub repo for submission. The default real provider (OpenAI or Anthropic) is still open; it only matters once the real providers are implemented.
+- **Choice:** until Erland says otherwise, follow the recommended options: LangGraph, Chroma for org facts, JSONL traces with optional Jaeger, and a GitHub repo for submission. The default real provider (OpenAI or Anthropic) is still open; it only matters once the real providers are implemented. (Settled by D37: either can be `LLM_PROVIDER`, and the other is the fallback.)
 
 ## Phase 2: agents, graph and router
 
@@ -192,3 +192,15 @@ One entry per decision: what we chose, the alternative, and the trade-off. Newes
 - **Choice:** both SDKs already retry connection errors, timeouts, 429 and 5xx with exponential backoff; we set `LLM_MAX_RETRIES` (2) and `LLM_TIMEOUT_SECONDS` (60) on them instead of writing our own loop. What still fails becomes `LLMError`, and `FallbackLLM` sends the same call to the other real provider with that provider's model for the same task (gpt-5.4-mini to claude-haiku-5-5, gpt-5.4 to claude-sonnet-5-5, and back). It is on when `LLM_FALLBACK=true` and the other key is set. Invalid output does not switch provider: the agent retries once with the error and then sends the email to human review. Each provider attempt gets its own span, so a fallback shows in the waterfall as a failed call followed by a good one, and `llm_fallbacks_total` counts it. The step limit per run is LangGraph's `recursion_limit` (25) plus the tool loop's call limit.
 - **Alternative:** our own retry decorator (for example with tenacity), or a circuit breaker that stops trying the primary for a while.
 - **Trade-off:** the SDK retry logic already honours `retry-after` headers and is tested by the vendors, so a second layer would only multiply waiting time. Without a circuit breaker, a provider that is fully down costs one failed attempt per call before the fallback; for a single user's inbox that is acceptable and much simpler to explain. Mid tool loop the fallback provider sees the earlier tool calls rebuilt in its own format, without the first provider's hidden reasoning, which is fine because each call stands on the transcript.
+
+## Phase 5: demo, evaluation and documentation
+
+### D38. The evaluation measures the whole triage step, and counts the mistakes nobody would see
+- **Choice:** `scripts/eval_classifier.py` runs `triage_email()` (pre-filter, model, rules) on 20 labelled emails kept apart from the demo inbox, each a one-message thread. Besides accuracy, per-intent precision and recall, a confusion matrix and accuracy by confidence bucket, it reports "wrong, not reviewed": wrong intents with confidence above the threshold and no fraud warning, which the router would act on without a human. Models are given as `provider:model`, fallback is off, and several models print in one table. The labels carry a one-line reason, and some cases are deliberately hard (a sales pitch asking for a call, phishing from a lookalike brand).
+- **Alternative:** evaluate only the raw model output, reuse the demo inbox, or report accuracy alone.
+- **Trade-off:** measuring the full step is what the user experiences, but it mixes model and rule effects; the per-intent table and the misclassified list show where an error came from. A separate set avoids tuning the fake model's keywords to the test. Twenty emails are enough to compare models and catch regressions, not to claim a general accuracy. The fake model scores 55%: it is a keyword baseline, and its numbers are kept in the README as they are.
+
+### D39. The demo notebook drives the same code as the CLI, with scripted decisions
+- **Choice:** `notebooks/demo.ipynb` calls `process_email()` with a `decide` function that edits e04, rejects e03 and approves the rest, so the run is reproducible. It writes to a throwaway runtime folder and to `logs/demo/`; `sample_logs/` is a copy of one run, plus two trace waterfalls and the evaluation report. A last section simulates a provider outage with a broken fake provider: without a fallback the email goes to review and the error lands in `errors.jsonl`, with one the run continues.
+- **Alternative:** a separate demo script with its own logic, or a recorded screencast.
+- **Trade-off:** nothing in the notebook is special-cased, so what it shows is what the code does. The outage is simulated, because a real outage cannot be produced on demand; the fallback path between real providers is covered by unit tests.

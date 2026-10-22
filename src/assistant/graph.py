@@ -95,7 +95,7 @@ def triage(state: State, runtime: Runtime[Deps]) -> State:
     try:
         result, _ = triage_email(deps, email)
     except AgentError as error:
-        return {"errors": [str(error)], "review_reason": "Triage failed validation."}
+        return {"errors": [str(error)], "review_reason": "Triage failed after a retry; see errors.jsonl."}
     # Topic tags and rule warnings are low risk and reversible, so they are
     # applied automatically, even when the intent itself goes to human review.
     for label in result.labels:
@@ -145,14 +145,14 @@ def summarise(state: State, runtime: Runtime[Deps]) -> State:
     try:
         return {"summary": summarise_thread(deps, deps.mail.get_thread(state["email"].thread_id))}
     except AgentError as error:
-        return {"errors": [str(error)], "review_reason": "Summary failed validation."}
+        return {"errors": [str(error)], "review_reason": "Summary failed after a retry; see errors.jsonl."}
 
 
 def draft(state: State, runtime: Runtime[Deps]) -> State:
     try:
         reply, tool_results = draft_reply(runtime.context, state["email"], state["summary"])
     except AgentError as error:
-        return {"errors": [str(error)], "review_reason": "Draft failed validation."}
+        return {"errors": [str(error)], "review_reason": "Drafting failed after a retry; see errors.jsonl."}
     return {"draft": reply, "tool_results": tool_results}
 
 
@@ -160,7 +160,7 @@ def schedule(state: State, runtime: Runtime[Deps]) -> State:
     try:
         proposal, tool_results = propose_schedule(runtime.context, state["email"], state["triage"].intent)
     except AgentError as error:
-        return {"errors": [str(error)], "review_reason": "Scheduling failed validation."}
+        return {"errors": [str(error)], "review_reason": "Scheduling failed after a retry; see errors.jsonl."}
     return {"schedule": proposal, "tool_results": tool_results}
 
 

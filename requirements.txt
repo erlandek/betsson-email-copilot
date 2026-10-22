@@ -15,3 +15,4 @@ opentelemetry-sdk==1.45.1
 opentelemetry-exporter-otlp-proto-http==1.45.1  # only imported when OTEL_EXPORTER_OTLP_ENDPOINT is set
 structlog==26.1.0
 pytest==9.1.1
+ipykernel==7.4.0  # to run notebooks/demo.ipynb (VS Code or Jupyter)

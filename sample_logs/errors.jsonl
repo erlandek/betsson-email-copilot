@@ -1,0 +1,1 @@
+{"node": "draft", "error": "drafter: no valid DraftReply after one retry: 503 Service Unavailable", "event": "node_error", "run_id": "dfcecd595d53", "email_id": "e03", "level": "error", "timestamp": "2026-10-22T15:43:44.035098Z", "trace_id": "ce31228bdb1a8f6cf29e9c0daa7c9c15", "span_id": "c868e09199231f2c"}

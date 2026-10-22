@@ -61,8 +61,8 @@ def render(spans: list[dict], trace_id: str) -> str:
 
     def walk(span: dict, depth: int) -> None:
         start, end = _time(span["start_time"]), _time(span["end_time"])
-        offset = round((start - t0).total_seconds() / total * BAR)
-        width = max(1, round((end - start).total_seconds() / total * BAR))
+        offset = min(BAR - 1, round((start - t0).total_seconds() / total * BAR))
+        width = max(1, round((end - start).total_seconds() / total * BAR))  # at least one mark, even if tiny
         bar = (" " * offset + "#" * width).ljust(BAR)[:BAR]
         name = ("  " * depth + span["name"])[:40].ljust(40)
         ms = (end - start).total_seconds() * 1000

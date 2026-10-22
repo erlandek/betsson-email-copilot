@@ -1,8 +1,8 @@
 """Scheduler: propose a calendar event (meeting request) or a reminder task (follow-up).
 
-Like the drafter, it runs a bounded tool loop. The search window is computed in
-code (next working week in the user's time zone) so the model never has to do
-date arithmetic, which models are unreliable at.
+Like the drafter, it runs a bounded tool loop. The search window (next working
+week) and a reminder's default due time are computed in code, in the user's time
+zone, so the model never has to do date arithmetic, which models are unreliable at.
 """
 
 from datetime import datetime, timedelta
@@ -17,7 +17,8 @@ from assistant.tools import working_hours
 SYSTEM = f"""You schedule things for the user. The user approves every proposal before it is created.
 For a meeting request, call check_availability in the given search window and propose an event
 (kind "event") in a free slot that fits what the sender asked for, with the sender as attendee.
-For a follow-up, propose a reminder task (kind "task") with a sensible due date; no attendees.
+For a follow-up, propose a reminder task (kind "task") due at the given time, or on the date the email
+names if it names one; no attendees.
 Give a one-sentence reason.
 {UNTRUSTED_NOTE}"""
 
@@ -29,13 +30,20 @@ def next_week_window(received_at: datetime, tz: ZoneInfo) -> tuple[datetime, dat
     return monday, monday + timedelta(days=5)
 
 
+def default_due(received_at: datetime, tz: ZoneInfo) -> datetime:
+    """09:00 local time a week after the email. Adding days in local time keeps it 09:00 across a DST change."""
+    local = received_at.astimezone(tz) + timedelta(days=7)
+    return local.replace(hour=9, minute=0, second=0, microsecond=0)
+
+
 def propose_schedule(deps: Deps, email: Email, intent: Intent) -> tuple[ScheduleProposal, list[ToolResult]]:
     lines = [f"Intent: {intent.value}"]
     if intent == Intent.meeting_request:
         start, end = next_week_window(email.received_at, ZoneInfo(deps.settings.timezone))
         lines.append(f"Search window: {start.isoformat()} | {end.isoformat()}")
     else:
-        lines.append("Propose a reminder task, not an event.")
+        due = default_due(email.received_at, ZoneInfo(deps.settings.timezone))
+        lines += ["Propose a reminder task, not an event.", f"Due: {due.isoformat()}"]
     lines += ["Latest email:", format_email(email)]
     result, tool_results = run_tool_loop(
         deps, "scheduler", SYSTEM, "\n".join(lines), ScheduleProposal, deps.settings.model_for("draft")

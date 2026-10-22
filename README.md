@@ -15,7 +15,7 @@ Requires Python 3.11 or newer. No API keys are needed: `LLM_PROVIDER=fake` is th
 ```bash
 python -m venv .venv
 .venv/bin/pip install -r requirements.txt      # Windows: .venv\Scripts\pip install -r requirements.txt
-.venv/bin/pytest                               # 139 tests
+.venv/bin/pytest                               # 140 tests
 .venv/bin/python scripts/process_inbox.py      # triage table and metrics; stops before any approval
 .venv/bin/python scripts/copilot.py run        # interactive: approve, edit, reject or skip each action
 .venv/bin/python scripts/copilot.py memory     # preferences (seeded or learned) and feedback
@@ -168,20 +168,21 @@ Every run writes to `logs/`. [`sample_logs/`](sample_logs/) is a copy from one r
 A run of the meeting request, from `scripts/show_trace.py e07` (fake model, so the times are tiny):
 
 ```
-email_run                                |##############################|    23.7 ms
-  node triage                            |  ##                          |     1.5 ms
-    chat fake-triage                     |   #                          |     0.8 ms  233 in / 7 out
-  node schedule                          |     ###########              |     9.0 ms
-    chat fake-draft                      |      #                       |     0.2 ms
-    execute_tool get_preferences         |      #                       |     0.2 ms
-    chat fake-draft                      |       #                      |     0.1 ms
-    execute_tool check_availability      |       #######                |     5.5 ms
-    chat fake-draft                      |               ##             |     1.4 ms  287 in / 14 out
-  node propose_action                    |                  #           |     0.1 ms
-  node human_approval                    |                   #          |     0.1 ms  waiting for human
-  node human_approval                    |                       #      |     0.1 ms
-  node execute                           |                        #     |     1.1 ms
-  node update_memory                     |                           ## |     1.5 ms
+email_run                                |##############################|    22.4 ms
+  node fetch                             |  #                           |     0.1 ms
+  node triage                            |   #                          |     0.9 ms
+    chat fake-triage                     |   #                          |     0.2 ms  233 in / 7 out
+  node schedule                          |     ###########              |     8.2 ms
+    chat fake-draft                      |     #                        |     0.1 ms
+    execute_tool get_preferences         |      #                       |     0.4 ms
+    chat fake-draft                      |      #                       |     0.1 ms
+    execute_tool check_availability      |      #######                 |     5.2 ms
+    chat fake-draft                      |              ##              |     1.2 ms  298 in / 14 out
+  node propose_action                    |                 #            |     0.1 ms
+  node human_approval                    |                  #           |     0.2 ms  waiting for human
+  node human_approval                    |                     #        |     0.1 ms
+  node execute                           |                       ##     |     1.3 ms
+  node update_memory                     |                          ##  |     1.5 ms
 ```
 
 `sample_logs/trace_e03_fallback.txt` shows the simulated outage: each failed call to the broken provider is followed by a good one on the fallback.

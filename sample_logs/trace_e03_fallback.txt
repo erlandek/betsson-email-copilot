@@ -1,21 +1,21 @@
-Trace 7bd753a6156e102dbd4675504630dc58  email e03  run f46d8ae8c462  279.9 ms
-email_run                                |##############################|   279.9 ms
-  node fetch                             |#                             |     0.1 ms
-  node triage                            |#                             |     1.9 ms
-    chat fake-triage                     |#                             |     1.1 ms  267 in / 10 out
+Trace 48c1633e208e28e021256dc3297a63a3  email e03  run 48f73f42739c  228.2 ms
+email_run                                |##############################|   228.2 ms
+  node fetch                             |#                             |     0.2 ms
+  node triage                            |#                             |     1.8 ms
+    chat fake-triage                     |#                             |     1.0 ms  267 in / 10 out
   node summarise                         | #                            |     1.4 ms
     chat fake-draft                      | #                            |     1.1 ms  177 in / 55 out
-  node draft                             | #############################|   266.2 ms
+  node draft                             | #############################|   216.9 ms
     chat fake-draft                      | #                            |     0.4 ms  ERROR LLMError: 503 Service Unavailable
     chat fake-draft                      | #                            |     0.1 ms
     execute_tool lookup_contact          | #                            |     0.4 ms
     chat fake-draft                      | #                            |     0.3 ms  ERROR LLMError: 503 Service Unavailable
-    chat fake-draft                      | #                            |     0.1 ms
-    execute_tool search_knowledge        | ###########################  |   253.6 ms
-    chat fake-draft                      |                            # |     1.1 ms  ERROR LLMError: 503 Service Unavailable
-    chat fake-draft                      |                             #|     0.7 ms
-    execute_tool get_preferences         |                             #|     0.8 ms
+    chat fake-draft                      | #                            |     0.2 ms
+    execute_tool search_knowledge        | ############################ |   211.1 ms
     chat fake-draft                      |                             #|     0.5 ms  ERROR LLMError: 503 Service Unavailable
-    chat fake-draft                      |                             #|     3.6 ms  332 in / 27 out
-  node propose_action                    |                             #|     0.2 ms
+    chat fake-draft                      |                             #|     0.1 ms
+    execute_tool get_preferences         |                             #|     0.2 ms
+    chat fake-draft                      |                             #|     0.3 ms  ERROR LLMError: 503 Service Unavailable
+    chat fake-draft                      |                             #|     1.2 ms  332 in / 27 out
+  node propose_action                    |                             #|     0.1 ms
   node human_approval                    |                             #|     0.2 ms  waiting for human

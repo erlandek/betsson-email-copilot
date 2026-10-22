@@ -1,16 +1,16 @@
-Trace 9b4445eb9f7085bf999d5c48a3f7ad18  email e07  run ad0aed463b3d  23.7 ms
-email_run                                |##############################|    23.7 ms
+Trace 096eefd8b310f864570b769b08a11d67  email e07  run ee7455e37a55  22.4 ms
+email_run                                |##############################|    22.4 ms
   node fetch                             |  #                           |     0.1 ms
-  node triage                            |  ##                          |     1.5 ms
-    chat fake-triage                     |   #                          |     0.8 ms  233 in / 7 out
-  node schedule                          |     ###########              |     9.0 ms
-    chat fake-draft                      |      #                       |     0.2 ms
-    execute_tool get_preferences         |      #                       |     0.2 ms
-    chat fake-draft                      |       #                      |     0.1 ms
-    execute_tool check_availability      |       #######                |     5.5 ms
-    chat fake-draft                      |               ##             |     1.4 ms  287 in / 14 out
-  node propose_action                    |                  #           |     0.1 ms
-  node human_approval                    |                   #          |     0.1 ms  waiting for human
-  node human_approval                    |                       #      |     0.1 ms
-  node execute                           |                        #     |     1.1 ms
-  node update_memory                     |                           ## |     1.5 ms
+  node triage                            |   #                          |     0.9 ms
+    chat fake-triage                     |   #                          |     0.2 ms  233 in / 7 out
+  node schedule                          |     ###########              |     8.2 ms
+    chat fake-draft                      |     #                        |     0.1 ms
+    execute_tool get_preferences         |      #                       |     0.4 ms
+    chat fake-draft                      |      #                       |     0.1 ms
+    execute_tool check_availability      |      #######                 |     5.2 ms
+    chat fake-draft                      |              ##              |     1.2 ms  298 in / 14 out
+  node propose_action                    |                 #            |     0.1 ms
+  node human_approval                    |                  #           |     0.2 ms  waiting for human
+  node human_approval                    |                     #        |     0.1 ms
+  node execute                           |                       ##     |     1.3 ms
+  node update_memory                     |                          ##  |     1.5 ms

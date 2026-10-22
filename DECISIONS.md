@@ -113,6 +113,7 @@ One entry per decision: what we chose, the alternative, and the trade-off. Newes
 - **Choice:** the scheduler gets a search window (next working week, Monday to Friday, `TIMEZONE=Europe/Stockholm`) computed in code; `check_availability` returns merged free periods within working hours from preferences.
 - **Alternative:** let the model work out "next week" itself.
 - **Trade-off:** models are unreliable at date arithmetic and time zones (this week is CEST, next week CET). Computing the window removes a whole class of errors and keeps the tool output to a few lines.
+- **Later:** the dry run in Phase 6 found that a follow-up reminder for e09 was due at 09:00+02:00, which is 08:00 in Stockholm after the clocks change on 25 October. The default due time (09:00 local, a week after the email) is now computed in code the same way and given to the model.
 
 ## Fixes before Phase 3
 

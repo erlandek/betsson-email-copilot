@@ -131,15 +131,17 @@ def memory() -> None:
 def outbox() -> None:
     """Show mock-sent emails and calendar entries created by the copilot."""
     settings = Settings()
+    lines = []
     sent = settings.runtime_dir / "sent.json"
     for record in json.loads(sent.read_text(encoding="utf-8")) if sent.exists() else []:
-        typer.echo(f"SENT {record['action_id']}  to {', '.join(record['to'])}: {record['subject']}")
+        lines.append(f"SENT {record['action_id']}  to {', '.join(record['to'])}: {record['subject']}")
     calendar = settings.runtime_dir / "calendar.json"
     if calendar.exists():
         data = json.loads(calendar.read_text(encoding="utf-8"))
         for item in [*data["events"], *data["tasks"]]:
             if item.get("action_id"):
-                typer.echo(f"CALENDAR {item['action_id']}  {item['title']} {item.get('start') or item.get('due')}")
+                lines.append(f"CALENDAR {item['action_id']}  {item['title']} {item.get('start') or item.get('due')}")
+    typer.echo("\n".join(lines) or "Nothing sent or scheduled yet. Approve an action with `copilot.py run` first.")
 
 
 if __name__ == "__main__":

@@ -8,7 +8,7 @@ import pytest
 from conftest import DATA_DIR
 from pydantic import ValidationError
 
-from assistant.agents.scheduler import check_proposal, next_week_window, propose_schedule
+from assistant.agents.scheduler import check_proposal, default_due, next_week_window, propose_schedule
 from assistant.agents.structured import AgentError
 from assistant.schemas import Email, Intent, ScheduleProposal
 
@@ -37,6 +37,15 @@ def test_next_week_window_crosses_the_dst_change_correctly():
     start, end = next_week_window(datetime(2026, 10, 21, 9, 15, tzinfo=timezone(timedelta(hours=2))), STOCKHOLM)
     assert start.isoformat() == "2026-10-26T00:00:00+01:00"  # Monday after the switch to CET
     assert end.isoformat() == "2026-10-31T00:00:00+01:00"
+
+
+def test_reminder_is_due_at_0900_local_after_the_dst_change(deps):
+    # e09 arrived on 20 October (CEST); a week later Stockholm is on CET, and 09:00 must stay 09:00.
+    received = datetime(2026, 10, 20, 16, 40, tzinfo=timezone(timedelta(hours=2)))
+    assert default_due(received, STOCKHOLM).isoformat() == "2026-10-27T09:00:00+01:00"
+    proposal, _ = propose_schedule(deps, deps.mail.get_email("e09"), Intent.follow_up)
+    assert proposal.kind == "task"
+    assert proposal.due.astimezone(STOCKHOLM).strftime("%H:%M") == "09:00"
 
 
 def with_hours(deps, hours: str):

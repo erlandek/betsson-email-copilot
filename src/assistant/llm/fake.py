@@ -258,18 +258,12 @@ class FakeLLM(LLMClient):
                 attendees=[sender] if sender else [],
                 reason="First free time in working hours that matches the request.",
             )
-        due = _field(text, "Due")
-        received = _latest_field(text, "Received")
-        if due:
-            due_at = datetime.fromisoformat(due)
-        elif received:
-            # No explicit date: remind a week after the email, at 09:00.
-            due_at = (datetime.fromisoformat(received) + timedelta(days=7)).replace(hour=9, minute=0, second=0)
-        else:
-            raise LLMError("FakeLLM needs a 'Free slot:', 'Due:' or 'Received:' line to schedule")
+        due = _field(text, "Due")  # the scheduler computes the default due time in code
+        if not due:
+            raise LLMError("FakeLLM needs a 'Free time:' or 'Due:' line to schedule")
         return ScheduleProposal(
             kind="task",
             title=f"Follow up: {subject.removeprefix('Re: ')}",
-            due=due_at,
+            due=datetime.fromisoformat(due),
             reason="Sender said they would come back; remind to follow up.",
         )

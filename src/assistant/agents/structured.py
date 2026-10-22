@@ -7,6 +7,7 @@ can send the email to the human review queue instead of guessing.
 
 import time
 
+from opentelemetry.trace import Status, StatusCode
 from pydantic import ValidationError
 
 from assistant.deps import Deps
@@ -23,14 +24,41 @@ def call_structured(deps: Deps, system: str, user: str, schema: type[T], model: 
     try:
         return deps.llm.generate(system, user, schema, model)
     except (ValidationError, LLMError) as first_error:
+        _count_failure(deps, schema, first_error)
         retry_user = f"{user}\n\nYour previous answer was invalid: {first_error}. Answer again with valid {schema.__name__}."
         try:
             return deps.llm.generate(system, retry_user, schema, model)
         except (ValidationError, LLMError) as second_error:
+            _count_failure(deps, schema, second_error)
             raise AgentError(f"{schema.__name__} failed validation twice: {second_error}") from second_error
 
 
+def _count_failure(deps: Deps, schema: type, error: Exception) -> None:
+    """validation_failures_total counts bad answers; provider errors are counted by the LLM wrapper."""
+    if isinstance(error, ValidationError):
+        deps.obs.metrics.inc("validation_failures_total", schema=schema.__name__)
+        deps.obs.log.warning("validation_failed", schema=schema.__name__, errors=error.error_count())
+
+
 def execute_tool(deps: Deps, agent: str, call: ToolCall) -> ToolResult:
+    """Run one tool call in its own span; see _run_tool for the checks."""
+    obs = deps.obs
+    with obs.tracer.start_as_current_span(f"execute_tool {call.name}") as span:
+        span.set_attributes({"gen_ai.operation.name": "execute_tool", "gen_ai.tool.name": call.name,
+                             "assistant.agent": agent})
+        if call.id:
+            span.set_attribute("gen_ai.tool.call.id", call.id)
+        result = _run_tool(deps, agent, call)
+        outcome = "error" if result.error else "ok"
+        if result.error:
+            span.set_status(Status(StatusCode.ERROR, result.error[:200]))
+        obs.metrics.inc("tool_calls_total", tool=call.name, outcome=outcome)
+        obs.log.info("tool_call", agent=agent, tool=call.name, outcome=outcome,
+                     latency_ms=round(result.latency_ms, 1), error=result.error)
+        return result
+
+
+def _run_tool(deps: Deps, agent: str, call: ToolCall) -> ToolResult:
     """Run one tool call after checking the allowlist and validating its arguments.
 
     Problems are returned to the model as an error result rather than raised,
@@ -70,6 +98,7 @@ def run_tool_loop(
         try:
             step = deps.llm.next_step(system, messages, specs, schema, model, final=final)
         except (ValidationError, LLMError) as error:
+            _count_failure(deps, schema, error)
             if retried:
                 raise AgentError(f"{agent}: {schema.__name__} failed validation twice: {error}") from error
             retried = True

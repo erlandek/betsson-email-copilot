@@ -37,19 +37,25 @@ def main() -> None:
     app = build_graph()
 
     rows = []
-    for email in emails_to_process(deps):
-        state = process_email(app, deps, email.id)
-        t = state.get("triage")
-        rows.append((
-            email.id, email.sender[:30], email.subject[:38],
-            t.intent.value if t else "-", t.priority.value if t else "-", f"{t.confidence:.2f}" if t else "-",
-            ", ".join(deps.mail.get_email(email.id).labels), describe(state),
-        ))
+    try:
+        for email in emails_to_process(deps):
+            state = process_email(app, deps, email.id)
+            t = state.get("triage")
+            rows.append((
+                email.id, email.sender[:30], email.subject[:38],
+                t.intent.value if t else "-", t.priority.value if t else "-", f"{t.confidence:.2f}" if t else "-",
+                ", ".join(deps.mail.get_email(email.id).labels), describe(state),
+            ))
+    finally:
+        deps.obs.close()  # flush spans, write metrics.json
 
     headers = ("id", "from", "subject", "intent", "priority", "conf", "labels", "outcome")
     widths = [max(len(str(r[i])) for r in [headers, *rows]) for i in range(len(headers))]
     for row in [headers, tuple("-" * w for w in widths), *rows]:
         print("  ".join(str(cell).ljust(w) for cell, w in zip(row, widths)))
+    print(f"\nProvider: {settings.llm_provider}\n")
+    print(deps.obs.metrics.summary())
+    print(f"\nLogs, traces and metrics: {settings.logs_dir}/ (scripts/show_trace.py prints a run)")
 
 
 if __name__ == "__main__":

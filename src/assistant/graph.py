@@ -17,14 +17,19 @@ The graph pauses at human_approval. A checkpointer saves the state, so the
 decision can arrive minutes or days later, even in a new process.
 """
 
+import time
+import uuid
 from collections.abc import Callable
 from datetime import datetime, timezone
 from typing import TypedDict
 
+import structlog
 from langgraph.checkpoint.memory import InMemorySaver
+from langgraph.errors import GraphBubbleUp
 from langgraph.graph import END, START, StateGraph
 from langgraph.runtime import Runtime
 from langgraph.types import Command, interrupt
+from opentelemetry.trace import Status, StatusCode
 from pydantic import ValidationError
 
 from assistant.agents.drafter import draft_reply
@@ -95,6 +100,7 @@ def triage(state: State, runtime: Runtime[Deps]) -> State:
     # applied automatically, even when the intent itself goes to human review.
     for label in result.labels:
         deps.mail.apply_label(email.id, label)
+    deps.obs.metrics.inc("emails_by_intent_total", intent=result.intent.value)
     return {"triage": result}
 
 
@@ -266,6 +272,47 @@ def update_memory(state: State, runtime: Runtime[Deps]) -> State:
 # --- Graph -------------------------------------------------------------------
 
 
+def traced(name: str, node: Callable) -> Callable:
+    """Run a node inside its own span, with a log line and a latency metric.
+
+    Errors a node handles itself (an AgentError that routes to human review)
+    come back in the state's "errors" list; they are logged and counted here,
+    and the span is marked as failed, without stopping the run.
+    """
+
+    def run(state: State, runtime: Runtime[Deps]) -> State:
+        obs = runtime.context.obs
+        with obs.tracer.start_as_current_span(f"node {name}", record_exception=False,
+                                              set_status_on_exception=False) as span:
+            started = time.perf_counter()
+            try:
+                update = node(state, runtime)
+            except GraphBubbleUp:  # interrupt(): waiting for a human, not a failure
+                span.set_attribute("assistant.waiting_for_human", True)
+                obs.log.info("node_paused", node=name)
+                raise
+            except Exception as error:
+                span.record_exception(error)
+                span.set_status(Status(StatusCode.ERROR, type(error).__name__))
+                obs.metrics.inc("errors_total", node=name)
+                obs.log.exception("node_failed", node=name)
+                raise
+            finally:
+                latency_ms = (time.perf_counter() - started) * 1000
+                obs.metrics.observe("node_latency_ms", latency_ms, node=name)
+
+            new_errors = [e for e in update.get("errors", []) if e not in state.get("errors", [])]
+            for message in new_errors:
+                obs.metrics.inc("errors_total", node=name)
+                obs.log.error("node_error", node=name, error=message)
+            if new_errors:
+                span.set_status(Status(StatusCode.ERROR, new_errors[0][:200]))
+            obs.log.info("node", node=name, latency_ms=round(latency_ms, 1), route=update.get("route"))
+            return update
+
+    return run
+
+
 def build_graph(checkpointer=None):
     """Compile the graph. Without a checkpointer an in-memory one is used (tests, one-off runs)."""
     graph = StateGraph(State, context_schema=Deps)
@@ -274,7 +321,7 @@ def build_graph(checkpointer=None):
         ("summarise", summarise), ("draft", draft), ("schedule", schedule), ("propose_action", propose_action),
         ("human_approval", human_approval), ("execute", execute), ("update_memory", update_memory),
     ]:
-        graph.add_node(name, node)
+        graph.add_node(name, traced(name, node))
 
     graph.add_edge(START, "fetch")
     graph.add_edge("fetch", "triage")
@@ -322,16 +369,33 @@ def process_email(app, deps: Deps, email_id: str, decide: Decide | None = None) 
     snapshot = app.get_state(config)
     if snapshot.values and not snapshot.next:
         return snapshot.values  # finished earlier
-    if snapshot.next:
-        result = {**snapshot.values, "__interrupt__": snapshot.interrupts}  # waiting for a decision
-    else:
-        result = app.invoke({"email_id": email_id}, config, context=deps)
 
-    while result.get("__interrupt__") and decide:
-        decision = decide(result["__interrupt__"][0].value)
-        if decision is None:
-            break
-        result = app.invoke(Command(resume=decision.model_dump(mode="json")), config, context=deps)
+    obs, run_id = deps.obs, uuid.uuid4().hex[:12]
+    # One trace per run. A run resumed later, in another process, starts a new trace
+    # with the same email_id, so the two can still be found together.
+    with (
+        obs.tracer.start_as_current_span("email_run", attributes={"assistant.email_id": email_id,
+                                                                  "assistant.run_id": run_id}) as span,
+        structlog.contextvars.bound_contextvars(run_id=run_id, email_id=email_id),
+    ):
+        if snapshot.next:
+            result = {**snapshot.values, "__interrupt__": snapshot.interrupts}  # waiting for a decision
+            span.set_attribute("assistant.resumed", True)
+        else:
+            result = app.invoke({"email_id": email_id}, config, context=deps)
+
+        while result.get("__interrupt__") and decide:
+            decision = decide(result["__interrupt__"][0].value)
+            if decision is None:
+                break
+            obs.metrics.inc("decisions_total", decision=decision.decision)
+            obs.log.info("human_decision", decision=decision.decision)
+            result = app.invoke(Command(resume=decision.model_dump(mode="json")), config, context=deps)
+
+        status = "waiting_for_human" if result.get("__interrupt__") else "done"
+        span.set_attributes({"assistant.route": result.get("route", "-"), "assistant.status": status})
+        obs.metrics.inc("email_runs_total", route=result.get("route", "-"), status=status)
+        obs.log.info("email_run", route=result.get("route"), status=status, outcome=result.get("outcome"))
     return result
 
 

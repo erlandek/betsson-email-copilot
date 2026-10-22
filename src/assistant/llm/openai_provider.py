@@ -22,17 +22,19 @@ from assistant.llm.pricing import cost_usd
 from assistant.schemas import ToolCall
 
 MAX_OUTPUT_TOKENS = 16000
-# Failures worth our one retry. Anything else (bad key, bad request) is a setup bug and stops the run.
+# Still failing after the SDK's own retries: these become LLMError, which moves the call to the
+# fallback provider. Anything else (bad key, bad request) is a setup bug and stops the run.
 TRANSIENT = (openai.APIConnectionError, openai.RateLimitError, openai.InternalServerError)
 
 
 class OpenAIClient(LLMClient):
     provider = "openai"
 
-    def __init__(self, api_key: str | None, client: Any = None):
+    def __init__(self, api_key: str | None, client: Any = None, max_retries: int = 2, timeout: float = 60.0):
         if not api_key:
             raise ValueError("OPENAI_API_KEY is not set; add it to .env or use LLM_PROVIDER=fake")
-        self._client = client or openai.OpenAI(api_key=api_key)
+        # The SDK retries connection errors, 429 and 5xx with exponential backoff, max_retries times.
+        self._client = client or openai.OpenAI(api_key=api_key, max_retries=max_retries, timeout=timeout)
         self._turns: dict[str, list] = {}  # tool call id -> the output items that made the call
 
     def generate(self, system: str, user: str, schema: type[T], model: str) -> LLMResult[T]:

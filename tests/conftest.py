@@ -28,5 +28,7 @@ def deps(tmp_path: Path) -> Deps:
     """Fake LLM, mock adapters on the sample data, all writes under tmp_path."""
     # Keyword knowledge search keeps the suite fast; test_memory.py covers Chroma.
     settings = Settings(_env_file=None, data_dir=DATA_DIR, runtime_dir=tmp_path / "runtime",
-                        knowledge_backend="keyword")
-    return build_deps(settings)
+                        logs_dir=tmp_path / "logs", knowledge_backend="keyword")
+    deps = build_deps(settings)
+    yield deps
+    deps.obs.close()

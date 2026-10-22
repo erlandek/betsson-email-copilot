@@ -1,5 +1,4 @@
-# Pinned to the versions tested. Later phases add opentelemetry and structlog,
-# each pinned when first used.
+# Pinned to the versions tested.
 pydantic==2.14.1
 pydantic-settings==2.16.1
 python-dotenv==1.2.4
@@ -12,4 +11,7 @@ typer==0.27.3
 tzdata==2026.5  # time zone data for zoneinfo; Windows has none built in
 openai==3.36.1  # only imported when LLM_PROVIDER=openai
 anthropic==2.1.0  # only imported when LLM_PROVIDER=anthropic
+opentelemetry-sdk==1.45.1
+opentelemetry-exporter-otlp-proto-http==1.45.1  # only imported when OTEL_EXPORTER_OTLP_ENDPOINT is set
+structlog==26.1.0
 pytest==9.1.1

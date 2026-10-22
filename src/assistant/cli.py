@@ -99,17 +99,22 @@ def run(approve_all: bool = typer.Option(False, help="Approve every proposal wit
             return HumanDecision(decision="approve")
         return ask_human(view, tz)
 
-    for email in emails_to_process(deps):
-        state = process_email(graph, deps, email.id, decide)
-        if pending_view(state):
-            status = "waiting for approval"
-        elif state.get("route") == "human_review":
-            status = f"needs review: {state['review_reason']}"
-        else:
-            status = state.get("outcome") or "labelled and archived"
-        typer.echo(f"{email.id}  {email.subject[:45]:45}  {status}")
-        for item in state.get("learned") or []:
-            typer.echo(f"      learned preference {item.key} = {item.value!r}")
+    try:
+        for email in emails_to_process(deps):
+            state = process_email(graph, deps, email.id, decide)
+            if pending_view(state):
+                status = "waiting for approval"
+            elif state.get("route") == "human_review":
+                status = f"needs review: {state['review_reason']}"
+            else:
+                status = state.get("outcome") or "labelled and archived"
+            typer.echo(f"{email.id}  {email.subject[:45]:45}  {status}")
+            for item in state.get("learned") or []:
+                typer.echo(f"      learned preference {item.key} = {item.value!r}")
+    finally:
+        deps.obs.close()  # flush spans, write metrics.json
+    typer.echo("\n" + deps.obs.metrics.summary())
+    typer.echo(f"\nLogs, traces and metrics: {deps.settings.logs_dir}/ (scripts/show_trace.py prints a run)")
 
 
 @app.command()

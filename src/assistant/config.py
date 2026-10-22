@@ -30,6 +30,13 @@ class Settings(BaseSettings):
 
     # "all": every outgoing action needs approval, as the brief requires.
     # "risk_based" is documented as the production option but not the default.
+    # Reliability. The SDKs retry 429, 5xx and timeouts with exponential backoff
+    # llm_max_retries times; after that the call falls back to the other real
+    # provider, if llm_fallback is on and that provider's key is set.
+    llm_max_retries: int = Field(default=2, ge=0)
+    llm_timeout_seconds: float = Field(default=60.0, gt=0)
+    llm_fallback: bool = True
+
     approval_mode: Literal["all", "risk_based"] = "all"
     confidence_threshold: float = Field(default=0.6, ge=0.0, le=1.0)
     max_tool_calls: int = Field(default=4, ge=1)

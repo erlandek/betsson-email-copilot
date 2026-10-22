@@ -13,13 +13,17 @@ def get_llm_client(settings: Settings, provider: Provider | None = None) -> LLMC
         from assistant.llm.openai_provider import OpenAIClient
 
         key = settings.openai_api_key
-        return OpenAIClient(key.get_secret_value() if key else None)
+        return OpenAIClient(key.get_secret_value() if key else None, **_limits(settings))
     if provider == "anthropic":
         from assistant.llm.anthropic_provider import AnthropicClient
 
         key = settings.anthropic_api_key
-        return AnthropicClient(key.get_secret_value() if key else None)
+        return AnthropicClient(key.get_secret_value() if key else None, **_limits(settings))
     raise ValueError(f"unknown provider: {provider}")
+
+
+def _limits(settings: Settings) -> dict:
+    return {"max_retries": settings.llm_max_retries, "timeout": settings.llm_timeout_seconds}
 
 
 __all__ = ["FakeLLM", "LLMClient", "LLMError", "LLMResult", "get_llm_client"]

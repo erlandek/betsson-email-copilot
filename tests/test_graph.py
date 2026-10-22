@@ -74,14 +74,17 @@ def test_fraud_review_reason_explains_why(run):
 
 def test_failed_worker_goes_to_human_review(run, deps):
     from assistant.llm.base import LLMError
+    from assistant.llm.fake import FakeLLM
+    from assistant.llm.instrumented import InstrumentedLLM
 
-    class BrokenDrafts(type(deps.llm)):
+    class BrokenDrafts(FakeLLM):
         def next_step(self, *args, **kwargs):
             raise LLMError("provider down")
 
-    deps.llm = BrokenDrafts()
+    deps.llm = InstrumentedLLM(BrokenDrafts(), deps.obs)
     state = run("e04")
     assert state["route"] == "human_review" and state["errors"]
+    assert deps.obs.metrics.counters["errors_total{node=draft}"] == 1
 
 
 def test_graph_is_deterministic(deps):

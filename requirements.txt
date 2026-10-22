@@ -1,6 +1,10 @@
-# Pinned to the versions tested. Later phases add langgraph, opentelemetry,
-# structlog, chromadb and the provider SDKs, each pinned when first used.
+# Pinned to the versions tested. Later phases add opentelemetry, structlog,
+# chromadb and the provider SDKs, each pinned when first used.
 pydantic==2.14.1
 pydantic-settings==2.16.1
 python-dotenv==1.2.4
+langgraph==1.2.16
+langgraph-checkpoint==4.3.0
+langchain-core==1.6.13
+tzdata==2026.5  # time zone data for zoneinfo; Windows has none built in
 pytest==9.1.1

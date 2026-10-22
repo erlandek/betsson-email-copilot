@@ -72,14 +72,15 @@ def test_fake_draft_uses_facts_and_preferences(mail):
     styled = FakeLLM().generate("Draft.", prompt + "\nPreference sign_off: Best, Erland\nPreference reply_length: short",
                                 DraftReply, "m").output
     assert styled.body.endswith("Best, Erland")
-    assert styled.facts_used == []
+    assert styled.tone == "concise"
 
 
 def test_fake_schedule_event_and_task():
     event = FakeLLM().generate(
-        "Schedule.", "From: priya.nair@example.com\nSubject: Re: Sync\nFree slot: 2026-10-27T15:00:00+01:00 | 2026-10-27T15:30:00+01:00",
+        "Schedule.", "From: priya.nair@example.com\nSubject: Re: Sync\nFree time: 2026-10-27T15:00:00+01:00 | 2026-10-27T17:00:00+01:00",
         ScheduleProposal, "m").output
     assert event.kind == "event" and event.title == "Sync"
+    assert (event.end - event.start).seconds == 30 * 60  # default meeting length, not the whole free period
     task = FakeLLM().generate("Schedule.", "Subject: DPA\nDue: 2026-10-31T09:00:00+01:00", ScheduleProposal, "m").output
     assert task.kind == "task"
     with pytest.raises(LLMError):

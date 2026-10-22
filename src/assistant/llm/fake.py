@@ -4,18 +4,24 @@ FakeLLM lets the whole demo and test suite run with no API keys and identical
 output on every run. It does not try to be clever: it picks a small handler per
 output schema and applies keyword rules to the prompt text.
 
-Prompt convention the handlers rely on (agents in later phases build prompts
-this way anyway, to keep untrusted email text clearly separated):
-    From: <address>          Subject: <subject>          Body: ...
+Prompt convention the handlers rely on. The agents build prompts this way
+anyway, and tool results are rendered in the same line format:
+    From: <address>          Subject: <subject>          Received: <iso>
+    Body: ... (until the next From: line or </email>)
     [F02] <org fact text>    Preference sign_off: <text>
-    Free slot: <iso start> | <iso end>    Due: <iso datetime>
+    Search window: <iso start> | <iso end>
+    Free time: <iso start> | <iso end>    Due: <iso datetime>
+
+In a tool loop, FakeLLM follows a fixed script per output schema (which tools,
+in which order, with which arguments), then answers from the transcript. A real
+model chooses its own calls; the loop enforces the same limits on both.
 """
 
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 
-from assistant.llm.base import LLMClient, LLMError, LLMResult, T
-from assistant.schemas import DraftReply, Intent, Priority, ScheduleProposal, ThreadSummary, TriageResult
+from assistant.llm.base import LLMClient, LLMError, LLMResult, Message, T, ToolSpec
+from assistant.schemas import DraftReply, Intent, Priority, ScheduleProposal, ThreadSummary, ToolCall, TriageResult
 
 # Keyword cues per intent. Order matters on ties: earlier intents win, and a tie
 # also lowers confidence so the email is sent to human review.
@@ -37,8 +43,37 @@ def _field(text: str, name: str) -> str | None:
 
 
 def _bodies(text: str) -> list[str]:
-    # A body runs from "Body:" until the next message's "From:" line or the end.
-    return [b.strip() for b in re.findall(r"^Body:\s*(.*?)(?=^From:|\Z)", text, flags=re.MULTILINE | re.DOTALL)]
+    # A body runs from "Body:" until the next message's "From:" line, a closing tag or the end.
+    pattern = r"^Body:\s*(.*?)(?=^From:|^</email>|\Z)"
+    return [b.strip() for b in re.findall(pattern, text, flags=re.MULTILINE | re.DOTALL)]
+
+
+def _latest_field(text: str, name: str) -> str | None:
+    """Like _field, but the last occurrence: in a thread, the latest message counts."""
+    matches = re.findall(rf"^{name}:\s*(.+)$", text, flags=re.MULTILINE)
+    return matches[-1].strip() if matches else None
+
+
+def _tool_script(schema: type, text: str) -> list[ToolCall]:
+    """The fixed sequence of tool calls FakeLLM makes for each output schema."""
+    if schema is DraftReply:
+        sender = _latest_field(text, "From") or ""
+        subject = _latest_field(text, "Subject") or ""
+        bodies = _bodies(text)
+        query = f"{subject} {' '.join(bodies[-1].split()[:40]) if bodies else ''}".strip()
+        return [
+            ToolCall(name="lookup_contact", args={"email": sender}),
+            ToolCall(name="search_knowledge", args={"query": query, "k": 3}),
+            ToolCall(name="get_preferences", args={}),
+        ]
+    if schema is ScheduleProposal:
+        calls = [ToolCall(name="get_preferences", args={})]
+        window = _field(text, "Search window")
+        if window:
+            start, end = (part.strip() for part in window.split("|"))
+            calls.append(ToolCall(name="check_availability", args={"start": start, "end": end, "duration_minutes": 30}))
+        return calls
+    return []
 
 
 def _first_sentence(text: str) -> str:
@@ -71,8 +106,21 @@ class FakeLLM(LLMClient):
             output_tokens=len(output.model_dump_json().split()),
         )
 
+    def next_step(
+        self, system: str, messages: list[Message], tools: list[ToolSpec], schema: type[T], model: str
+    ) -> ToolCall | LLMResult[T]:
+        transcript = "\n".join(m.content for m in messages)
+        calls_made = sum(1 for m in messages if m.role == "tool_call")
+        script = _tool_script(schema, messages[0].content if messages else "")
+        offered = {t.name for t in tools}
+        if calls_made < len(script) and script[calls_made].name in offered:
+            return script[calls_made]
+        return self.generate(system, transcript, schema, model)
+
     def _triage(self, text: str) -> TriageResult:
-        lowered = text.lower()
+        # Classify only the latest email; earlier messages are context for a real model.
+        blocks = re.findall(r"<email>(.*?)</email>", text, flags=re.DOTALL)
+        lowered = (blocks[-1] if blocks else text).lower()
         scores = {intent: sum(lowered.count(k) for k in keys) for intent, keys in INTENT_KEYWORDS.items()}
         ranked = sorted(scores.items(), key=lambda kv: kv[1], reverse=True)  # stable: keeps dict order on ties
         (top, top_score), (_, second_score) = ranked[0], ranked[1]
@@ -107,45 +155,66 @@ class FakeLLM(LLMClient):
         )
 
     def _draft(self, text: str) -> DraftReply:
-        sender = _field(text, "From") or "unknown@example.com"
-        subject = _field(text, "Subject") or ""
-        sign_off = _field(text, "Preference sign_off") or "Best regards,\nErland"
+        sender = _latest_field(text, "From") or "unknown@example.com"
+        subject = _latest_field(text, "Subject") or ""
+        sign_off = _field(text, "Preference sign_off") or "Best regards, Erland"
         short = _field(text, "Preference reply_length") == "short"
-        facts = re.findall(r"^\[(F\d+)\]\s*(.+)$", text, flags=re.MULTILINE)
+        # A short reply cites one fact, a normal reply up to three; duplicates are dropped.
+        facts = list(dict.fromkeys(re.findall(r"^\[(F\d+)\]\s*(.+)$", text, flags=re.MULTILINE)))
+        facts = facts[:1] if short else facts[:3]
 
-        name = sender.split("@")[0].split(".")[0].capitalize()
-        lines = [f"Hi {name},", "", "Thanks for your email."]
-        if facts and not short:
-            lines.append(facts[0][1])
+        name = sender.split("@")[0].split(".")[0].split("-")[0].capitalize()
+        lines = [f"Hi {name},", "", "Thanks for your email." if not short else "Thanks."]
+        lines += [fact for _, fact in facts]
         lines += ["", sign_off]
         return DraftReply(
             to=[sender],
             subject=subject if subject.lower().startswith("re:") else f"Re: {subject}",
             body="\n".join(lines),
             tone="concise" if short else "friendly",
-            facts_used=[facts[0][0]] if facts and not short else [],
+            facts_used=[fact_id for fact_id, _ in facts],
         )
 
     def _schedule(self, text: str) -> ScheduleProposal:
-        subject = _field(text, "Subject") or "Follow-up"
-        sender = _field(text, "From")
-        slot = _field(text, "Free slot")
-        if slot:
-            start, end = (datetime.fromisoformat(part.strip()) for part in slot.split("|"))
+        subject = _latest_field(text, "Subject") or "Follow-up"
+        sender = _latest_field(text, "From")
+        periods = [
+            tuple(datetime.fromisoformat(part.strip()) for part in line.split("|"))
+            for line in re.findall(r"^Free time:\s*(.+)$", text, flags=re.MULTILINE)
+        ]
+        # Honour weekdays and "afternoon" named in the request, when such time is free.
+        bodies = _bodies(text)
+        request = bodies[-1].lower() if bodies else ""
+        days = [d for d in ("monday", "tuesday", "wednesday", "thursday", "friday") if d in request]
+        if days:
+            periods = [p for p in periods if p[0].strftime("%A").lower() in days] or periods
+        if "afternoon" in request:
+            # Start at 13:00 when a free period spans lunchtime.
+            afternoon = [(max(s, s.replace(hour=13, minute=0)), e) for s, e in periods if e.hour >= 14]
+            periods = afternoon or periods
+        if periods:
+            start = periods[0][0]
+            minutes = int(_field(text, "Preference meeting_length_minutes") or 30)
             return ScheduleProposal(
                 kind="event",
                 title=subject.removeprefix("Re: "),
                 start=start,
-                end=end,
+                end=start + timedelta(minutes=minutes),
                 attendees=[sender] if sender else [],
-                reason="First free slot in working hours.",
+                reason="First free time in working hours that matches the request.",
             )
         due = _field(text, "Due")
-        if not due:
-            raise LLMError("FakeLLM needs a 'Free slot:' or 'Due:' line to schedule")
+        received = _latest_field(text, "Received")
+        if due:
+            due_at = datetime.fromisoformat(due)
+        elif received:
+            # No explicit date: remind a week after the email, at 09:00.
+            due_at = (datetime.fromisoformat(received) + timedelta(days=7)).replace(hour=9, minute=0, second=0)
+        else:
+            raise LLMError("FakeLLM needs a 'Free slot:', 'Due:' or 'Received:' line to schedule")
         return ScheduleProposal(
             kind="task",
             title=f"Follow up: {subject.removeprefix('Re: ')}",
-            due=datetime.fromisoformat(due),
+            due=due_at,
             reason="Sender said they would come back; remind to follow up.",
         )

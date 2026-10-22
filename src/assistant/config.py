@@ -33,6 +33,8 @@ class Settings(BaseSettings):
     approval_mode: Literal["all", "risk_based"] = "all"
     confidence_threshold: float = Field(default=0.6, ge=0.0, le=1.0)
     max_tool_calls: int = Field(default=4, ge=1)
+    user_email: str = "erland@example.com"  # whose mailbox this is
+    timezone: str = "Europe/Stockholm"  # the user's time zone, for working hours and scheduling
 
     data_dir: Path = Path("data")
     runtime_dir: Path = Path("runtime")  # mock mailbox state (sent.json, calendar.json)

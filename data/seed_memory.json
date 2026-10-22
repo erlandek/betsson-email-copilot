@@ -1,0 +1,17 @@
+{
+  "contacts": [
+    {"email": "sofia.lind@example.com", "name": "Sofia Lind", "relationship": "manager, Head of Product", "vip": true},
+    {"email": "priya.nair@example.com", "name": "Priya Nair", "relationship": "colleague, Recommendations lead"},
+    {"email": "jonas.ek@example.com", "name": "Jonas Ek", "relationship": "colleague, senior data scientist"},
+    {"email": "mark.jensen@nordwind.example", "name": "Mark Jensen", "relationship": "partner, Nordwind Payments"},
+    {"email": "laura.berg@fjordanalytics.example", "name": "Laura Berg", "relationship": "partner, Fjord Analytics legal"},
+    {"email": "it-servicedesk@example.com", "name": "IT Service Desk", "relationship": "internal service"}
+  ],
+  "preferences": [
+    {"key": "sign_off", "value": "Best regards, Erland"},
+    {"key": "reply_length", "value": "medium"},
+    {"key": "working_hours", "value": "09:00-17:00"},
+    {"key": "meeting_length_minutes", "value": "30"}
+  ],
+  "newsletter_senders": ["news@cloudtools.example"]
+}

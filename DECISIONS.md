@@ -39,13 +39,13 @@ One entry per decision: what we chose, the alternative, and the trade-off. Newes
 - **Alternative:** rely only on the execute node checking first.
 - **Trade-off:** a tiny amount of duplicated checking buys defence in depth: even a bug in the graph cannot send the same email twice.
 
-### D8. One `LLMClient.generate(system, user, schema, model)` method
-- **Choice:** every provider returns a validated schema instance plus tokens, latency and cost (`LLMResult`). Our instructions go in `system`; email text goes in `user` as data.
+### D8. One `LLMClient` interface with two calls: `generate()` and `next_step()`
+- **Choice:** every provider returns a validated schema instance plus tokens, latency and cost (`LLMResult`). `generate()` is one prompt in, one answer out. `next_step()` is one turn of a tool loop: the model either asks for a tool or gives its final answer. Our instructions go in `system`; email text goes in the user message as data.
 - **Alternative:** expose each provider's SDK directly to the agents, or use LangChain chat model wrappers.
-- **Trade-off:** we write a thin adapter per provider, but agents stay provider-agnostic, fallback between providers is trivial, and usage metrics are recorded in one place. **Open point for Phase 2:** worker tool loops will need either a `generate_with_tools` method or agents calling tools in plain code; to confirm with Erland before building it.
+- **Trade-off:** we write a thin adapter per provider, but agents stay provider-agnostic, fallback between providers is simple, and usage metrics are recorded in one place. The loop itself is our code, so its limits do not depend on the provider (see D15).
 
 ### D9. FakeLLM uses keyword rules per output schema
-- **Choice:** one small handler per schema (triage, summary, draft, schedule) applying keyword rules to the prompt. A tie between intents lowers confidence, which is how the ambiguous email ends up below the 0.6 threshold.
+- **Choice:** one small handler per schema (triage, summary, draft, schedule) applying keyword rules to the prompt. A tie between intents lowers confidence, which is how the ambiguous email ends up below the 0.6 threshold. In a tool loop it plays a fixed script of tool calls per schema (D15).
 - **Alternative:** canned answers keyed by email id.
 - **Trade-off:** keyword rules are cruder than a model, but they react to the input (so edits, preferences and new emails behave sensibly), stay fully deterministic and need no keys. It relies on a simple prompt convention (`From:`, `Subject:`, `Body:`, `[F01] fact`, `Preference key: value`, `Free slot:`, `Due:`) that real prompts will follow anyway.
 
@@ -71,3 +71,45 @@ One entry per decision: what we chose, the alternative, and the trade-off. Newes
 
 ### D14. PLAN.md section 15 defaults
 - **Choice:** until Erland says otherwise, follow the recommended options: LangGraph, Chroma for org facts, JSONL traces with optional Jaeger, and a GitHub repo for submission. The default real provider (OpenAI or Anthropic) is still open; it only matters once the real providers are implemented.
+
+## Phase 2: agents, graph and router
+
+### D15. Hybrid tool use: deterministic pre-fetch plus a bounded tool loop (decided by Erland)
+- **Choice:** data that every run needs is fetched in plain code: triage always gets the thread and the sender's contact record, and the summariser always gets the thread. The drafter and scheduler run a real tool-calling loop where the model chooses its tools, with: at most 4 tool calls (`MAX_TOOL_CALLS`), a per-agent allowlist, Pydantic validation of every tool's arguments, and a schema-validated final answer. After the 4th call the model is offered no tools, which forces an answer. Denied or invalid calls are returned to the model as errors and still count towards the limit. FakeLLM emits a fixed script of tool calls so the demo stays deterministic.
+- **Alternatives:** (a) tools called only in plain code, with the LLM producing just the final schema; (b) a free tool loop for every agent, including triage.
+- **Trade-off:** (a) is cheapest and most predictable but is not really agentic, and it fetches context whether or not the email needs it. (b) spends tokens and latency letting the model rediscover that triage always needs the thread. The hybrid keeps the high-volume step (triage) cheap and fixed, and gives agency where it adds value: deciding which facts and preferences a reply or meeting needs. The cap, allowlist and argument validation bound cost and the damage a prompt-injected model could do. All tools are read-only; sending and creating events are never tools.
+
+### D16. Dependencies reach the nodes through LangGraph's runtime context
+- **Choice:** a `Deps` dataclass (settings, LLM client, adapters, memory, knowledge) is passed as `context=` when invoking the graph (`StateGraph(State, context_schema=Deps)`, LangGraph 1.2). Nodes read it via `runtime.context`.
+- **Alternative:** module-level globals, or closures created inside `build_graph()`.
+- **Trade-off:** this is the documented LangGraph 1.x way. It keeps the graph definition free of setup code, and tests swap any piece (for example a broken LLM) without patching imports. The cost is learning one LangGraph concept.
+
+### D17. Graph state is a `TypedDict` holding Pydantic objects
+- **Choice:** `State` lists every field a run can produce (email, triage, summary, draft, schedule, proposal, route, review_reason, errors). Each node returns only the keys it changes.
+- **Alternative:** a Pydantic model as the state schema.
+- **Trade-off:** a TypedDict is the simplest LangGraph state and the values inside are already validated Pydantic models, so a second layer of validation adds little.
+
+### D18. Routing rules
+- **Choice:** the router (a conditional edge) sends results below `CONFIDENCE_THRESHOLD` (0.6) or failed triage to `human_review`; newsletter, spam and fyi to `archive` (label and archive, never delete); reply_needed to summarise, draft, propose; meeting_request and follow_up to schedule, propose. A worker that fails validation twice also routes to `human_review`. The run ends at `propose_action` in this phase; approval and execution are Phase 3.
+- **Alternative:** route fyi to the inbox untouched instead of archiving.
+- **Trade-off:** archiving fyi follows PLAN 3.2 and keeps the inbox for things that need action. It is reversible, and the email keeps its `fyi` label.
+
+### D19. Labels are applied automatically, except unsure intent labels
+- **Choice:** the triage node applies labels straight away (low risk, reversible). Below the confidence threshold it applies only rule labels such as "Possible fraud: verify", then `human_review` adds "Needs review".
+- **Alternative:** always apply the model's intent label.
+- **Trade-off:** a wrong label on an ambiguous email would mislead the user; "Needs review" is honest about the uncertainty.
+
+### D20. A known contact classified as spam goes to human review
+- **Choice:** amendment A3 says a known contact or VIP is never spam. Instead of guessing the real intent, the rule changes the intent to fyi, caps confidence at 0.5 and adds "Spam override: known sender", so a human looks at it.
+- **Alternative:** silently relabel it as reply_needed.
+- **Trade-off:** one extra item in the review queue, against the risk of auto-drafting a reply to a compromised colleague account.
+
+### D21. Contacts, preferences and org facts are read-only stand-ins until Phase 3
+- **Choice:** `LongTermMemory` loads contacts, preferences and known newsletter senders from `data/seed_memory.json`; `KnowledgeBase` searches `org_facts.md` by keyword overlap (at least two shared words). Phase 3 moves memory to SQLite and knowledge to Chroma behind the same methods.
+- **Alternative:** build SQLite and Chroma now.
+- **Trade-off:** keeps this phase to agents and routing, as the plan's time plan intends. Keyword search is crude (it misses synonyms such as "docs" vs "documentation"), which is exactly the point the Chroma swap will demonstrate.
+
+### D22. Scheduling dates are computed in code, in the user's time zone
+- **Choice:** the scheduler gets a search window (next working week, Monday to Friday, `TIMEZONE=Europe/Stockholm`) computed in code; `check_availability` returns merged free periods within working hours from preferences.
+- **Alternative:** let the model work out "next week" itself.
+- **Trade-off:** models are unreliable at date arithmetic and time zones (this week is CEST, next week CET). Computing the window removes a whole class of errors and keeps the tool output to a few lines.

@@ -140,12 +140,18 @@ class FakeLLM(LLMClient):
         )
 
     def next_step(
-        self, system: str, messages: list[Message], tools: list[ToolSpec], schema: type[T], model: str
+        self,
+        system: str,
+        messages: list[Message],
+        tools: list[ToolSpec],
+        schema: type[T],
+        model: str,
+        final: bool = False,
     ) -> ToolCall | LLMResult[T]:
         transcript = "\n".join(m.content for m in messages)
         calls_made = sum(1 for m in messages if m.role == "tool_call")
         script = _tool_script(schema, messages[0].content if messages else "")
-        offered = {t.name for t in tools}
+        offered = set() if final else {t.name for t in tools}
         if calls_made < len(script) and script[calls_made].name in offered:
             return script[calls_made]
         return self.generate(system, transcript, schema, model)

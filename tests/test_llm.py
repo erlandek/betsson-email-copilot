@@ -2,8 +2,6 @@ import pytest
 
 from assistant.config import Settings
 from assistant.llm import FakeLLM, LLMError, get_llm_client
-from assistant.llm.anthropic_provider import AnthropicClient
-from assistant.llm.openai_provider import OpenAIClient
 from assistant.schemas import DraftReply, Intent, ScheduleProposal, ThreadSummary, TriageResult
 
 # What the fake classifier should say about each inbound sample email, before
@@ -100,8 +98,3 @@ def test_factory_defaults_to_fake_and_real_providers_need_keys():
     with pytest.raises(ValueError, match="ANTHROPIC_API_KEY"):
         get_llm_client(settings, provider="anthropic")
 
-
-def test_real_providers_are_stubs_for_now():
-    for client in (OpenAIClient("k"), AnthropicClient("k")):
-        with pytest.raises(NotImplementedError):
-            client.generate("s", "u", TriageResult, "m")

@@ -1,5 +1,5 @@
-# Pinned to the versions tested. Later phases add opentelemetry, structlog
-# and the provider SDKs, each pinned when first used.
+# Pinned to the versions tested. Later phases add opentelemetry and structlog,
+# each pinned when first used.
 pydantic==2.14.1
 pydantic-settings==2.16.1
 python-dotenv==1.2.4
@@ -10,4 +10,6 @@ langgraph-checkpoint-sqlite==3.1.2
 chromadb==1.5.9  # downloads a small local embedding model (about 80 MB) on first use
 typer==0.27.3
 tzdata==2026.5  # time zone data for zoneinfo; Windows has none built in
+openai==3.36.1  # only imported when LLM_PROVIDER=openai
+anthropic==2.1.0  # only imported when LLM_PROVIDER=anthropic
 pytest==9.1.1

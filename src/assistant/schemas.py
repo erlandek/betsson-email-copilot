@@ -163,6 +163,7 @@ class HumanDecision(Schema):
 
 
 class ToolCall(Schema):
+    id: str | None = None  # the provider's call id, needed to send the result back; None for FakeLLM
     name: str
     args: dict[str, Any] = {}
 

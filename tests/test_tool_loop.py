@@ -22,8 +22,8 @@ class ScriptedLLM(LLMClient):
             raise step
         return LLMResult[schema](output=step, provider=self.provider, model=model)
 
-    def next_step(self, system, messages, tools, schema, model):
-        self.offered.append([t.name for t in tools])
+    def next_step(self, system, messages, tools, schema, model, final=False):
+        self.offered.append([] if final else [t.name for t in tools])
         step = self.steps.pop(0) if self.steps else DRAFT
         if isinstance(step, Exception):
             raise step

@@ -56,8 +56,8 @@ def run_tool_loop(
 ) -> tuple[LLMResult[T], list[ToolResult]]:
     """Let the model call allowed tools, at most settings.max_tool_calls times, then answer.
 
-    Once the limit is reached the model is offered no tools, which forces a final
-    answer. That bounds cost and makes a runaway loop impossible.
+    Once the limit is reached the model is told it may not call tools, which
+    forces a final answer. That bounds cost and makes a runaway loop impossible.
     """
     specs = [TOOLS[name].spec for name in ALLOWLISTS[agent]]
     max_calls = deps.settings.max_tool_calls
@@ -66,9 +66,9 @@ def run_tool_loop(
     retried = False
 
     while True:
-        tools_now = specs if len(results) < max_calls else []
+        final = len(results) >= max_calls
         try:
-            step = deps.llm.next_step(system, messages, tools_now, schema, model)
+            step = deps.llm.next_step(system, messages, specs, schema, model, final=final)
         except (ValidationError, LLMError) as error:
             if retried:
                 raise AgentError(f"{agent}: {schema.__name__} failed validation twice: {error}") from error
@@ -78,10 +78,11 @@ def run_tool_loop(
 
         if isinstance(step, LLMResult):
             return step, results
-        if not tools_now:
+        if final:
             raise AgentError(f"{agent}: model asked for a tool after the limit of {max_calls} calls")
 
         result = execute_tool(deps, agent, step)
         results.append(result)
         messages.append(Message(role="tool_call", content=f"Call {step.name} {step.args}", tool_call=step))
-        messages.append(Message(role="tool_result", content=result.result or f"Error: {result.error}"))
+        # The result carries the call too, so providers can match it to the call id.
+        messages.append(Message(role="tool_result", content=result.result or f"Error: {result.error}", tool_call=step))

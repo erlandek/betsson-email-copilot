@@ -68,9 +68,17 @@ class LLMClient(ABC):
 
     @abstractmethod
     def next_step(
-        self, system: str, messages: list[Message], tools: list[ToolSpec], schema: type[T], model: str
+        self,
+        system: str,
+        messages: list[Message],
+        tools: list[ToolSpec],
+        schema: type[T],
+        model: str,
+        final: bool = False,
     ) -> ToolCall | LLMResult[T]:
         """Return either the next tool call or the final, schema-validated answer.
 
-        An empty `tools` list means the model must answer now.
+        final=True means the call limit is reached and the model must answer now.
+        The tools are still described, because the transcript refers to them,
+        but the provider is told not to call any.
         """

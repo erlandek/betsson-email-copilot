@@ -6,7 +6,7 @@ One entry per decision: what we chose, the alternative, and the trade-off. Newes
 
 ### D1. The plan's `email-assistant/` tree lives at the repository root
 - **Choice:** `src/`, `data/`, `tests/` and the docs sit directly in the repo root instead of an extra `email-assistant/` folder.
-- **Alternative:** nest everything under `email-assistant/` as drawn in PLAN.md section 9.
+- **Alternative:** nest everything under `email-assistant/` as drawn in the original plan.
 - **Trade-off:** one less directory level and simpler commands; nothing is lost because the repo holds only this project.
 
 ### D2. Settings are a Pydantic `BaseSettings` class read from `.env`
@@ -17,7 +17,7 @@ One entry per decision: what we chose, the alternative, and the trade-off. Newes
 ### D3. Strict schemas: enums, Literals and `extra="forbid"`
 - **Choice:** every schema rejects unknown fields; intents, priorities and decisions are closed sets.
 - **Alternative:** lenient models that ignore extra fields.
-- **Trade-off:** more validation failures from a sloppy model, but those are caught, retried once with the error, then escalated (PLAN section 4), rather than silently passing bad data through the graph.
+- **Trade-off:** more validation failures from a sloppy model, but those are caught, retried once with the error, then escalated, rather than silently passing bad data through the graph.
 
 ### D4. `ActionProposal.payload` is a typed union, checked against `action_type`
 - **Choice:** `payload: DraftReply | ScheduleProposal` with a validator that the payload fits the action (send_email needs a draft, create_event an event).
@@ -25,7 +25,7 @@ One entry per decision: what we chose, the alternative, and the trade-off. Newes
 - **Trade-off:** slightly more code, but a human edit is validated against exactly the same schema as the original proposal, and a mismatched action cannot be executed.
 
 ### D5. The mail adapter has no delete method
-- **Choice:** `MailAdapter` offers label and archive only (amendment A4).
+- **Choice:** `MailAdapter` offers label and archive only.
 - **Alternative:** a delete method that policy forbids calling.
 - **Trade-off:** none worth having: if the method does not exist, no prompt injection or bug can call it. A test asserts it is absent.
 
@@ -35,7 +35,7 @@ One entry per decision: what we chose, the alternative, and the trade-off. Newes
 - **Trade-off:** labels are lost between runs, which is fine because triage re-applies them (labels behave like a set). Sends and calendar entries are what must survive a restart, for idempotency and for the demo.
 
 ### D7. Idempotency is enforced in the adapters as well as the execute node
-- **Choice:** `send`, `create_event` and `create_task` take an `action_id` and return the existing record if that id was already used (amendment A7).
+- **Choice:** `send`, `create_event` and `create_task` take an `action_id` and return the existing record if that id was already used.
 - **Alternative:** rely only on the execute node checking first.
 - **Trade-off:** a tiny amount of duplicated checking buys defence in depth: even a bug in the graph cannot send the same email twice.
 
@@ -67,9 +67,9 @@ One entry per decision: what we chose, the alternative, and the trade-off. Newes
 ### D13. Org facts have stable IDs
 - **Choice:** each line of `org_facts.md` starts with an ID like `[F04]`.
 - **Alternative:** retrieve facts by text only.
-- **Trade-off:** a little formatting discipline, but drafts can cite `facts_used` by ID and the approval view can show exactly which facts a draft relied on (amendment A6).
+- **Trade-off:** a little formatting discipline, but drafts can cite `facts_used` by ID and the approval view can show exactly which facts a draft relied on.
 
-### D14. PLAN.md section 15 defaults
+### D14. Defaults for the plan's open questions
 - **Choice:** until Erland says otherwise, follow the recommended options: LangGraph, Chroma for org facts, JSONL traces with optional Jaeger, and a GitHub repo for submission. The default real provider (OpenAI or Anthropic) is still open; it only matters once the real providers are implemented. (Settled by D37: either can be `LLM_PROVIDER`, and the other is the fallback.)
 
 ## Phase 2: agents, graph and router
@@ -102,7 +102,7 @@ One entry per decision: what we chose, the alternative, and the trade-off. Newes
 - **Trade-off:** the intent label duplicated information and was not useful in a mailbox. Tags are what a person files by. On an uncertain email a topic tag is still usually right even when the intent is not; "Needs review" marks the uncertainty.
 
 ### D20. A known contact classified as spam goes to human review
-- **Choice:** amendment A3 says a known contact or VIP is never spam. Instead of guessing the real intent, the rule changes the intent to fyi, caps confidence at 0.5 and adds "Spam override: known sender", so a human looks at it.
+- **Choice:** a known contact or VIP must never be filed as spam. Instead of guessing the real intent, the rule changes the intent to fyi, caps confidence at 0.5 and adds "Spam override: known sender", so a human looks at it.
 - **Alternative:** silently relabel it as reply_needed.
 - **Trade-off:** one extra item in the review queue, against the risk of auto-drafting a reply to a compromised colleague account.
 
@@ -137,18 +137,18 @@ One entry per decision: what we chose, the alternative, and the trade-off. Newes
 ## Phase 3: approval, execution, memory and learning
 
 ### D26. Approval is an `interrupt()` inside a `human_approval` node
-- **Choice:** after `propose_action`, the graph routes to `human_approval` when `requires_approval()` says so (always, with `APPROVAL_MODE=all`). The node builds the approval view (triage, summary, proposal, facts used: amendment A6) and calls `interrupt(view)`. The run stops and the state is checkpointed. Resuming with `Command(resume=decision)` re-runs the node and `interrupt()` returns the decision. An invalid decision (for example an edit that turns an email into a task) is not acted on; the node asks again with the error in the view.
+- **Choice:** after `propose_action`, the graph routes to `human_approval` when `requires_approval()` says so (always, with `APPROVAL_MODE=all`). The node builds the approval view (triage, summary, proposal, facts used) and calls `interrupt(view)`. The run stops and the state is checkpointed. Resuming with `Command(resume=decision)` re-runs the node and `interrupt()` returns the decision. An invalid decision (for example an edit that turns an email into a task) is not acted on; the node asks again with the error in the view.
 - **Alternative:** `interrupt_before=["execute"]` on compile, with the decision written into the state from outside.
 - **Trade-off:** `interrupt()` keeps the question and the validation of the answer in one readable node and is the current LangGraph recommendation. The catch, worth knowing in an interview: the node re-runs from the top on resume, so nothing before `interrupt()` may have side effects.
 
-### D27. Deterministic `action_id` for exactly-once execution (amendment A7)
+### D27. Deterministic `action_id` for exactly-once execution
 - **Choice:** before acting, `execute` computes `action_id = sha256(email id, action type, final payload)` and asks the adapter whether that id already exists (`find_sent`, `find_by_action_id`). Only if not does it send or create, storing the id with the record. The adapters also refuse duplicates (D7).
 - **Alternative:** a random UUID created in the node and saved to the state before acting.
 - **Trade-off:** a random id saved in the same node is lost if the process dies between acting and checkpointing, and the retry would make a new id and act twice; a deterministic id survives that crash. An edited payload is a genuinely different action and gets a different id. Re-approving an identical action for the same email is treated as a duplicate, which is the safe default.
 
 ### D28. One checkpointer thread per email, in SQLite
 - **Choice:** `SqliteSaver` in `runtime/checkpoints.db`, with `thread_id` = email id. `process_email` looks at the saved state first: finished emails are not reprocessed, emails waiting for approval are resumed (even in a new process), new emails start fresh.
-- **Alternative:** `thread_id` = email thread id, as first written in PLAN section 5.
+- **Alternative:** `thread_id` = email thread id, as first planned.
 - **Trade-off:** a mail thread receives new messages over time, and reusing its run would carry stale keys (an old draft, an old decision) into the new run. One run per email is clean; the thread's history still reaches the agents through `get_thread`.
 
 ### D29. Checkpoints only deserialise our own schema classes
@@ -156,10 +156,10 @@ One entry per decision: what we chose, the alternative, and the trade-off. Newes
 - **Alternative:** the default, which accepts any class and warns.
 - **Trade-off:** LangGraph 1.x warns that loading arbitrary classes from a checkpoint database is a code-execution risk and will block it in a future version. The allowlist removes the warning and the risk, and needs no maintenance because it is built from the schemas module.
 
-### D30. Long-term memory in SQLite, written only from human decisions (amendment A8)
+### D30. Long-term memory in SQLite, written only from human decisions
 - **Choice:** `runtime/memory.db` with four tables: preferences (key, value, source seeded/learned, updated_at), contacts, feedback (decision, our draft before, the human's version after, comment) and newsletter senders. Seeded from `data/seed_memory.json` the first time. Writes happen only in `update_memory`, after a human decision: feedback for every decision, learned preferences from edits, and the recipient of an approved reply becomes a contact ("replied to").
-- **Alternative:** PLAN section 5 said new senders are added to contacts automatically.
-- **Trade-off:** adding every sender would let any email make itself a "known contact", which would switch off the fraud and lookalike checks (they only apply to unknown senders). Adding a contact only when the user chooses to reply follows A8. A test checks that processing emails without decisions writes nothing.
+- **Alternative:** The original plan said new senders are added to contacts automatically.
+- **Trade-off:** adding every sender would let any email make itself a "known contact", which would switch off the fraud and lookalike checks (they only apply to unknown senders). Adding a contact only when the user chooses to reply follows the write policy. A test checks that processing emails without decisions writes nothing.
 
 ### D31. Chroma with a local embedding model for org facts
 - **Choice:** `ChromaKnowledgeBase` builds an in-memory Chroma collection from `org_facts.md` at start-up, using Chroma's built-in all-MiniLM-L6-v2 model (runs locally, downloaded once, about 80 MB, no API key). Facts further than cosine distance 0.65 are dropped (tuned on the sample inbox). `KNOWLEDGE_BACKEND=keyword` switches to word overlap; most tests use it to stay fast.

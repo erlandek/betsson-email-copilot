@@ -1,6 +1,6 @@
 """What the human sees before approving, and how a decision becomes the final action.
 
-The approval view (amendment A6) shows the triage result, the thread summary,
+The approval view shows the triage result, the thread summary,
 the proposal, and the facts the draft relied on, so the human can judge both
 the action and the reasoning behind it.
 """
@@ -43,7 +43,7 @@ def check_decision(proposal: ActionProposal, decision: HumanDecision) -> None:
 
 
 def make_action_id(email_id: str, proposal: ActionProposal, payload: DraftReply | ScheduleProposal) -> str:
-    """Deterministic id for an approved action (amendment A7).
+    """Deterministic id for an approved action (DECISIONS.md, D27).
 
     The same approved action always gets the same id, so a crash and retry, or a
     resumed run, finds the earlier record instead of acting twice. An edited

@@ -1,6 +1,6 @@
 """Schema-validated LLM calls with one retry, and a bounded tool-calling loop.
 
-Validation strategy (PLAN section 4): ask for the schema, retry once with the
+Validation strategy: ask for the schema, retry once with the
 validation error included, and if that also fails raise AgentError so the graph
 can send the email to the human review queue instead of guessing.
 """

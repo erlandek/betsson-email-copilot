@@ -1,4 +1,4 @@
-"""Evaluate the triage classifier on a labelled set (PLAN section 6, amendment A10).
+"""Evaluate the triage classifier on a labelled set (DECISIONS.md, D38).
 
 What is measured is the whole triage step as it runs in the graph: the
 newsletter pre-filter, the model, and the priority and fraud rules. Each email

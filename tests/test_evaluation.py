@@ -1,4 +1,4 @@
-"""The classifier evaluation (PLAN section 6, amendment A10)."""
+"""The classifier evaluation (DECISIONS.md, D38)."""
 
 from conftest import DATA_DIR
 

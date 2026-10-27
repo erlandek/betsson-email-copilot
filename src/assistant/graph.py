@@ -131,7 +131,7 @@ def human_review(state: State, runtime: Runtime[Deps]) -> State:
 
 
 def archive(state: State, runtime: Runtime[Deps]) -> State:
-    # Label and archive only; there is no delete (amendment A4).
+    # Label and archive only; there is no delete (DECISIONS.md, D5).
     mail, email = runtime.context.mail, state["email"]
     category = CATEGORY_LABELS.get(state["triage"].intent)
     if category:
@@ -210,7 +210,7 @@ def route_after_approval(state: State) -> str:
 
 
 def execute(state: State, runtime: Runtime[Deps]) -> State:
-    """Carry out the approved action exactly once (amendment A7).
+    """Carry out the approved action exactly once (DECISIONS.md, D27).
 
     The action_id is derived from the email and the final payload before acting,
     and the adapters are asked for it first. A resumed or retried run finds the
@@ -236,7 +236,7 @@ def execute(state: State, runtime: Runtime[Deps]) -> State:
 
 
 def update_memory(state: State, runtime: Runtime[Deps]) -> State:
-    """Write to long-term memory, only from the human decision (amendment A8)."""
+    """Write to long-term memory, only from the human decision (DECISIONS.md, D30)."""
     deps, proposal = runtime.context, state["proposal"]
     decision = state.get("decision")
     if decision is None:  # executed without approval (risk_based mode): nothing was decided

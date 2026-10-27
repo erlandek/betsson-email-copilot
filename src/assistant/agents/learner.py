@@ -1,7 +1,7 @@
 """Learning loop: turn a human edit into durable preferences.
 
 The input is only our own draft and the human's edited version, never the
-incoming email, so this respects the memory write policy (amendment A8).
+incoming email, so this respects the memory write policy (DECISIONS.md, D30).
 The output keys are a fixed list (PreferenceUpdate), so even a strange edit
 cannot create arbitrary memory entries.
 """

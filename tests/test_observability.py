@@ -1,4 +1,4 @@
-"""Logs, traces, metrics, retries and provider fallback (PLAN section 8)."""
+"""Logs, traces, metrics, retries and provider fallback (DECISIONS.md, D36 and D37)."""
 
 import json
 

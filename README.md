@@ -6,7 +6,7 @@ It reads new mail, labels and routes it, summarises threads, drafts replies and 
 
 **Contents:** [Quick start](#1-quick-start) · [Architecture](#2-architecture-and-execution-flow) · [Agents and routing](#3-agent-design-and-the-routing-decision) · [Structured I/O](#4-structured-io-and-validation) · [Memory](#5-memory) · [Human in the loop](#6-human-in-the-loop-and-action-policy) · [Observability](#7-observability) · [Classifier evaluation](#8-classifier-evaluation) · [Security](#9-security-notes) · [Limitations and next steps](#10-limitations-and-future-improvements)
 
-Design decisions, each with the alternative and the trade-off, are in [`DECISIONS.md`](DECISIONS.md). The original plan is in [`PLAN.md`](PLAN.md).
+Design decisions, each with the alternative and the trade-off, are in [`DECISIONS.md`](DECISIONS.md).
 
 ## 1. Quick start
 
@@ -137,7 +137,7 @@ Edits from the human are validated the same way: an edited draft must still be a
 
 **Learning loop.** When the human edits a draft, the learner compares before and after and may update a fixed set of keys (`sign_off`, `reply_length`, `greeting`, `tone`). The drafter's `get_preferences` tool returns those preferences plus the two most recent edits as examples. In the demo, shortening one reply and changing the sign-off makes the next similar reply short and signed "Best, Erland".
 
-**Write policy (A8).** Long-term memory is written only from human decisions and the seed file, never from email content, so an email cannot plant a preference or make itself a trusted contact. A recipient becomes a contact only when the user approves a reply to them. Full email bodies are not stored; feedback stores our draft and the human's version.
+**Write policy.** Long-term memory is written only from human decisions and the seed file, never from email content, so an email cannot plant a preference or make itself a trusted contact. A recipient becomes a contact only when the user approves a reply to them. Full email bodies are not stored; feedback stores our draft and the human's version.
 
 ## 6. Human in the loop and action policy
 

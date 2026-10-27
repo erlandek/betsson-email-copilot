@@ -15,6 +15,7 @@ class ScriptedLLM(LLMClient):
     def __init__(self, steps):
         self.steps = list(steps)
         self.offered = []
+        self.seen = []
 
     def generate(self, system, user, schema, model):
         step = self.steps.pop(0)
@@ -24,6 +25,7 @@ class ScriptedLLM(LLMClient):
 
     def next_step(self, system, messages, tools, schema, model, final=False):
         self.offered.append([] if final else [t.name for t in tools])
+        self.seen.append([m.content for m in messages])
         step = self.steps.pop(0) if self.steps else DRAFT
         if isinstance(step, Exception):
             raise step
@@ -62,6 +64,15 @@ def test_tool_loop_stops_offering_tools_after_the_limit(deps):
     assert output.output == DRAFT
     assert len(results) == 4
     assert deps.llm.offered[-1] == []  # fifth step: no tools offered, so the model must answer
+
+
+def test_tool_loop_tells_the_model_when_the_limit_is_reached(deps):
+    call = ToolCall(name="get_preferences", args={})
+    deps.llm = ScriptedLLM([call] * 4 + [LLMError("bad json"), DRAFT])
+    run_tool_loop(deps, "drafter", "s", "u", DraftReply, "m")
+    assert not any("used all 4 tool calls" in text for text in deps.llm.seen[3])
+    final_messages = deps.llm.seen[-1]  # the retry after the invalid answer
+    assert sum("used all 4 tool calls" in text for text in final_messages) == 1
 
 
 def test_tool_loop_raises_if_model_ignores_the_limit(deps):

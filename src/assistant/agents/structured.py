@@ -15,6 +15,8 @@ from assistant.llm.base import LLMError, LLMResult, Message, T
 from assistant.schemas import ToolCall, ToolResult
 from assistant.tools import ALLOWLISTS, TOOLS
 
+LIMIT_NOTE = "You have used all {max_calls} tool calls. Write your complete final answer now from what you found."
+
 
 class AgentError(Exception):
     """An agent could not produce a valid answer; the graph routes to human review."""
@@ -85,8 +87,9 @@ def run_tool_loop(
 ) -> tuple[LLMResult[T], list[ToolResult]]:
     """Let the model call allowed tools, at most settings.max_tool_calls times, then answer.
 
-    Once the limit is reached the model is told it may not call tools, which
-    forces a final answer. That bounds cost and makes a runaway loop impossible.
+    Once the limit is reached the model is offered no tools and told so in a
+    message, which forces a final answer. That bounds cost and makes a runaway
+    loop impossible.
     """
     specs = [TOOLS[name].spec for name in ALLOWLISTS[agent]]
     max_calls = deps.settings.max_tool_calls
@@ -116,3 +119,6 @@ def run_tool_loop(
         messages.append(Message(role="tool_call", content=f"Call {step.name} {step.args}", tool_call=step))
         # The result carries the call too, so providers can match it to the call id.
         messages.append(Message(role="tool_result", content=result.result or f"Error: {result.error}", tool_call=step))
+        if len(results) == max_calls:
+            # Offering no tools is not enough on its own: cut off without being told, Claude wrote a stub reply.
+            messages.append(Message(role="user", content=LIMIT_NOTE.format(max_calls=max_calls)))

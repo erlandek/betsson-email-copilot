@@ -152,7 +152,7 @@ def test_fallback_is_wired_only_when_the_other_key_is_set(deps):
     both = settings(llm_provider="openai", openai_api_key="k", anthropic_api_key="k")
     llm = build_llm(both, deps.obs)
     assert isinstance(llm, FallbackLLM)
-    assert llm.model_map == {"gpt-5.4-mini": "claude-haiku-5-5", "gpt-5.4": "claude-sonnet-5-5"}
+    assert llm.model_map == {"gpt-6-luna": "claude-haiku-5-5", "gpt-6.1-terra": "claude-sonnet-5-5"}
     assert not isinstance(build_llm(both.model_copy(update={"llm_fallback": False}), deps.obs), FallbackLLM)
 
 

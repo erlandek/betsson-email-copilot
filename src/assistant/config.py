@@ -23,8 +23,8 @@ class Settings(BaseSettings):
     anthropic_api_key: SecretStr | None = None
 
     # A small, fast model for triage and a stronger one for drafting.
-    openai_triage_model: str = "gpt-5.4-mini"
-    openai_draft_model: str = "gpt-5.4"
+    openai_triage_model: str = "gpt-6-luna"
+    openai_draft_model: str = "gpt-6.1-terra"
     anthropic_triage_model: str = "claude-haiku-5-5"
     anthropic_draft_model: str = "claude-sonnet-5-5"
 

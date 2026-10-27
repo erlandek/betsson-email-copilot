@@ -68,7 +68,7 @@ def load_cases(path: Path, user_email: str = "erland@example.com") -> list[Case]
 
 
 def settings_for(spec: str, workdir: Path) -> Settings:
-    """'fake' or 'provider:model', e.g. 'openai:gpt-5.4-mini'. Keys still come from .env."""
+    """'fake' or 'provider:model', e.g. 'openai:gpt-6-luna'. Keys still come from .env."""
     provider, _, model = spec.partition(":")
     overrides = {"llm_provider": provider, "llm_fallback": False,  # measure the model asked for, not a backup
                  "knowledge_backend": "keyword", "runtime_dir": workdir / "runtime", "logs_dir": workdir / "logs"}

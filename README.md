@@ -37,7 +37,7 @@ LLM_PROVIDER=openai    .venv/bin/python scripts/process_inbox.py   # needs OPENA
 LLM_PROVIDER=anthropic .venv/bin/python scripts/process_inbox.py   # needs ANTHROPIC_API_KEY
 ```
 
-On Windows PowerShell: `$env:LLM_PROVIDER="openai"; .venv\Scripts\python scripts\process_inbox.py`. A small model does triage and a stronger one drafts (defaults: `gpt-5.4-mini` and `gpt-5.4`, `claude-haiku-5-5` and `claude-sonnet-5-5`, all set in `.env`). With both keys set, the other provider is the fallback.
+On Windows PowerShell: `$env:LLM_PROVIDER="openai"; .venv\Scripts\python scripts\process_inbox.py`. A small model does triage and a stronger one drafts (defaults: `gpt-6-luna` and `gpt-6.1-terra`, `claude-haiku-5-5` and `claude-sonnet-5-5`, all set in `.env`). With both keys set, the other provider is the fallback.
 
 ## 2. Architecture and execution flow
 
@@ -202,7 +202,7 @@ The fake model is a keyword baseline, there to keep the demo deterministic, and 
 To compare real models (keys from `.env`, fallback switched off so each number belongs to the model named):
 
 ```bash
-.venv/bin/python scripts/eval_classifier.py fake openai:gpt-5.4-mini anthropic:claude-haiku-5-5 --markdown sample_logs/eval_models.md
+.venv/bin/python scripts/eval_classifier.py fake openai:gpt-6-luna anthropic:claude-haiku-5-5 --markdown sample_logs/eval_models.md
 ```
 
 ## 9. Security notes

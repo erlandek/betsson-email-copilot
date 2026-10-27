@@ -1,8 +1,8 @@
 """Evaluate the triage classifier on data/eval_emails.json, for one or more models.
 
     python scripts/eval_classifier.py                                    # FakeLLM only, no keys
-    python scripts/eval_classifier.py fake openai:gpt-5.4-mini anthropic:claude-haiku-5-5
-    python scripts/eval_classifier.py openai:gpt-5.4-mini --markdown eval_results.md
+    python scripts/eval_classifier.py fake openai:gpt-6-luna anthropic:claude-haiku-5-5
+    python scripts/eval_classifier.py openai:gpt-6-luna --markdown eval_results.md
 
 Each model is given as provider:model (keys come from .env). Fallback is off, so
 every number belongs to the model named. Prints markdown tables: a comparison

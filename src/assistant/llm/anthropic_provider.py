@@ -21,7 +21,7 @@ from assistant.llm.pricing import cost_usd
 from assistant.schemas import ToolCall
 
 MAX_TOKENS = 16000  # room for thinking plus a short structured reply
-EFFORT = "low"  # triage and drafting are short tasks; low effort keeps latency and cost down
+EFFORT = "medium"  # Haiku 5.5's default; OpenAI calls also run at their default effort, so the two compare fairly
 # Still failing after the SDK's own retries: these become LLMError, which moves the call to the
 # fallback provider. Anything else (bad key, bad request) is a setup bug and stops the run.
 TRANSIENT = (anthropic.APIConnectionError, anthropic.RateLimitError, anthropic.InternalServerError)

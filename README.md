@@ -37,7 +37,7 @@ LLM_PROVIDER=openai    .venv/bin/python scripts/process_inbox.py   # needs OPENA
 LLM_PROVIDER=anthropic .venv/bin/python scripts/process_inbox.py   # needs ANTHROPIC_API_KEY
 ```
 
-On Windows PowerShell: `$env:LLM_PROVIDER="openai"; .venv\Scripts\python scripts\process_inbox.py`. A small model does triage and a stronger one drafts (defaults: `gpt-6-luna` and `gpt-6.1-terra`, `claude-haiku-5-5` and `claude-sonnet-5-5`, all set in `.env`). With both keys set, the other provider is the fallback.
+On Windows PowerShell: `$env:LLM_PROVIDER="openai"; .venv\Scripts\python scripts\process_inbox.py`. The variable stays set for the rest of that window and overrides `.env`; `Remove-Item Env:LLM_PROVIDER` goes back to fake. A small model does triage and a stronger one drafts (defaults: `gpt-6-luna` and `gpt-6.1-terra`, `claude-haiku-5-5` and `claude-sonnet-5-5`, all set in `.env`). With both keys set, the other provider is the fallback.
 
 ## 2. Architecture and execution flow
 
@@ -56,7 +56,8 @@ flowchart LR
     TL --> MEM[(SQLite memory<br/>preferences, contacts, feedback)]
     TL --> KB[(Chroma<br/>org facts)]
     TL --> CAL[CalendarAdapter]
-    G --> MAIL[MailAdapter]
+    TL --> MAIL[MailAdapter]
+    G --> MAIL
     G --> CAL
     G --> CP[(SQLite checkpointer<br/>runs pause and resume)]
     H((Human)) <-->|approve, edit, reject| G
@@ -156,7 +157,7 @@ The policy is one function, `requires_approval()`, driven by `APPROVAL_MODE`. Th
 
 ## 7. Observability
 
-Every run writes to `logs/`. [`sample_logs/`](sample_logs/) is a copy from one run of the demo notebook.
+Every run writes to `logs/`. [`sample_logs/`](sample_logs/) holds the logs, traces and metrics from one run of the demo notebook, two trace waterfalls, and the classifier evaluation results.
 
 | Signal | File | What |
 |---|---|---|
@@ -196,10 +197,14 @@ email_run                                |##############################|    22.
 | Model | Intent acc. | Macro F1 | Priority acc. | To review | Wrong, not reviewed | Failures | Avg ms | p95 ms | Cost/email |
 |---|---|---|---|---|---|---|---|---|---|
 | fake (keyword baseline) | 55% | 0.58 | 75% | 45% | 3 | 0 | 0 | 1 | $0.00000 |
+| openai:gpt-6-luna | 100% | 1.00 | 100% | 0% | 0 | 0 | 2937 | 6329 | $0.00009 |
+| anthropic:claude-haiku-5-5 | 100% | 1.00 | 70% | 0% | 0 | 0 | 1715 | 2848 | $0.00014 |
 
 The fake model is a keyword baseline, there to keep the demo deterministic, and it is not a real classifier. Two things in its numbers still matter. Confidence is informative: in the full report, accuracy is 33% below 0.6, 67% between 0.6 and 0.8, and 100% above. The review threshold also works: 6 of its 9 mistakes went to a human, and "Wrong, not reviewed" counts the 3 it would have acted on. That column is the one to watch when comparing models.
 
-To compare real models (keys from `.env`, fallback switched off so each number belongs to the model named):
+Both real models, run on 27 October 2026, got every intent right. GPT-6 Luna also got every priority right; Claude Haiku 5.5 missed 6 of 20. Every real answer had a confidence of 0.8 or more, so the review threshold never fired on this set. Twenty emails is a smoke test, not a benchmark. Full reports: [`sample_logs/eval_models.md`](sample_logs/eval_models.md).
+
+To rerun the comparison (keys from `.env`, fallback switched off so each number belongs to the model named):
 
 ```bash
 .venv/bin/python scripts/eval_classifier.py fake openai:gpt-6-luna anthropic:claude-haiku-5-5 --markdown sample_logs/eval_models.md
@@ -219,7 +224,8 @@ To compare real models (keys from `.env`, fallback switched off so each number b
 - The mailbox and calendar are mocks; there is no OAuth or real mail API.
 - The fake model is keyword-based. It shows the flow, not the quality; real quality comes from the providers.
 - The evaluation set has 20 emails, labelled by us. It is enough to compare models and catch regressions, but not to make claims about accuracy in general.
-- Single user, one process, no queue. Each email is processed in turn.
+- Single user, one process, no queue. Each email is processed in turn, and a run starts only when the user starts it; there is no background loop watching the inbox.
+- Meeting attendees are not checked to be email addresses. In one live run Claude proposed the bare name "Jonas"; the human sees it at approval, but the schema should reject it.
 - No circuit breaker: if a provider is down, each call tries it once before falling back.
 - The knowledge base is rebuilt from the markdown file at start-up, which is fine for ten facts but not for thousands.
 

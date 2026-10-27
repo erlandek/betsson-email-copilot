@@ -10,6 +10,13 @@ from assistant.deps import Deps, build_deps
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 
 
+@pytest.fixture(autouse=True)
+def clean_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Ignore settings left in the shell, such as $env:LLM_PROVIDER, so tests always run on fake."""
+    for name in Settings.model_fields:
+        monkeypatch.delenv(name.upper(), raising=False)
+
+
 @pytest.fixture
 def mail(tmp_path: Path) -> MockMailAdapter:
     return MockMailAdapter(DATA_DIR / "inbox.json", tmp_path / "sent.json")

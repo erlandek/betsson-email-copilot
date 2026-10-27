@@ -83,7 +83,8 @@ def ask_human(view: dict, tz: ZoneInfo) -> HumanDecision | None:
                 payload["start"], payload["end"] = new.isoformat(), (new + length).isoformat()
             else:
                 payload["due"] = new.isoformat()
-        return HumanDecision(decision="edit", edited_payload=payload, comment=typer.prompt("Comment", default="") or None)
+        comment = typer.prompt("Comment", default="") or None
+        return HumanDecision(decision="edit", edited_payload=payload, comment=comment)
     return None  # skip: stays pending, run again later
 
 

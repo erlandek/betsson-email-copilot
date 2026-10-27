@@ -73,7 +73,8 @@ class LongTermMemory:
         return [PreferenceRecord(**dict(row)) for row in self._db.execute("SELECT * FROM preferences ORDER BY key")]
 
     def is_known_newsletter(self, sender: str) -> bool:
-        return self._db.execute("SELECT 1 FROM newsletter_senders WHERE sender = ?", (sender.lower(),)).fetchone() is not None
+        row = self._db.execute("SELECT 1 FROM newsletter_senders WHERE sender = ?", (sender.lower(),)).fetchone()
+        return row is not None
 
     def recent_edits(self, limit: int = 2) -> list[FeedbackRecord]:
         """The latest drafts the human edited: examples of the style they want."""

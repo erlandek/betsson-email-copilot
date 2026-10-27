@@ -15,7 +15,7 @@ Requires Python 3.11 or newer. No API keys are needed: `LLM_PROVIDER=fake` is th
 ```bash
 python -m venv .venv
 .venv/bin/pip install -r requirements.txt      # Windows: .venv\Scripts\pip install -r requirements.txt
-.venv/bin/pytest                               # 140 tests
+.venv/bin/pytest                               # 141 tests
 .venv/bin/python scripts/process_inbox.py      # triage table and metrics; stops before any approval
 .venv/bin/python scripts/copilot.py run        # interactive: approve, edit, reject or skip each action
 .venv/bin/python scripts/copilot.py memory     # preferences (seeded or learned) and feedback

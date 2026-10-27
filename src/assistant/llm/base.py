@@ -8,7 +8,7 @@ Two calls:
 - generate(): one prompt in, one schema-validated answer out (triage, summary).
 - next_step(): one turn of a tool-calling loop (drafter, scheduler). The model
   either asks for a tool or gives its final answer. The loop itself lives in
-  agents/tool_loop.py, so limits and allowlists are enforced in our code, not
+  agents/structured.py, so limits and allowlists are enforced in our code, not
   trusted to the model or the provider.
 """
 

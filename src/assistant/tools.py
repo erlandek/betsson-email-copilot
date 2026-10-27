@@ -1,7 +1,7 @@
 """Tools the worker agents may call, each with a Pydantic model for its arguments.
 
 The model never calls our code directly: it proposes a ToolCall, and
-agents/tool_loop.py checks the allowlist, validates the arguments with the
+agents/structured.py checks the allowlist, validates the arguments with the
 tool's args model, runs it and turns the result into text for the transcript.
 All tools here are read-only. Outgoing actions (send, create event) are never
 tools: they only happen in the execute node after human approval.

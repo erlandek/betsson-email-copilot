@@ -92,7 +92,8 @@ class MockCalendarAdapter(CalendarAdapter):
         existing = self.find_by_action_id(action_id)
         if isinstance(existing, CalendarTask):
             return existing
-        task = CalendarTask(id=f"task-{uuid.uuid4().hex[:8]}", title=proposal.title, due=proposal.due, action_id=action_id)
+        task = CalendarTask(id=f"task-{uuid.uuid4().hex[:8]}", title=proposal.title, due=proposal.due,
+                            action_id=action_id)
         events, tasks = self._load()
         tasks.append(task)
         self._save(events, tasks)

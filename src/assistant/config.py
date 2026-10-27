@@ -28,8 +28,6 @@ class Settings(BaseSettings):
     anthropic_triage_model: str = "claude-haiku-5-5"
     anthropic_draft_model: str = "claude-sonnet-5-5"
 
-    # "all": every outgoing action needs approval, as the brief requires.
-    # "risk_based" is documented as the production option but not the default.
     # Reliability. The SDKs retry 429, 5xx and timeouts with exponential backoff
     # llm_max_retries times; after that the call falls back to the other real
     # provider, if llm_fallback is on and that provider's key is set.
@@ -37,8 +35,10 @@ class Settings(BaseSettings):
     llm_timeout_seconds: float = Field(default=60.0, gt=0)
     llm_fallback: bool = True
 
+    # "all": every outgoing action needs approval, as the brief requires.
+    # "risk_based" is documented as the production option but not the default.
     approval_mode: Literal["all", "risk_based"] = "all"
-    confidence_threshold: float = Field(default=0.6, ge=0.0, le=1.0)
+    confidence_threshold: float = Field(default=0.6, gt=0.5, le=1.0)  # above REVIEW_CAP in triage.py
     max_tool_calls: int = Field(default=4, ge=1)
     user_email: str = "erland@example.com"  # whose mailbox this is
     timezone: str = "Europe/Stockholm"  # the user's time zone, for working hours and scheduling

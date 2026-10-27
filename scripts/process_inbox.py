@@ -23,7 +23,8 @@ def describe(state) -> str:
     if "proposal" in state:
         p = state["proposal"]
         if p.action_type.value == "send_email":
-            return f"Awaiting approval: reply to {', '.join(p.payload.to)} (facts {', '.join(p.payload.facts_used) or 'none'})"
+            facts = ", ".join(p.payload.facts_used) or "none"
+            return f"Awaiting approval: reply to {', '.join(p.payload.to)} (facts {facts})"
         when = p.payload.start or p.payload.due
         return f"Awaiting approval: {p.action_type.value} '{p.payload.title}' {when:%a %d %b %H:%M}"
     return "Labelled and archived"

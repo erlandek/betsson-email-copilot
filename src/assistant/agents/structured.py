@@ -25,7 +25,8 @@ def call_structured(deps: Deps, system: str, user: str, schema: type[T], model: 
         return deps.llm.generate(system, user, schema, model)
     except (ValidationError, LLMError) as first_error:
         _count_failure(deps, schema, first_error)
-        retry_user = f"{user}\n\nYour previous answer was invalid: {first_error}. Answer again with valid {schema.__name__}."
+        retry_user = (f"{user}\n\nYour previous answer was invalid: {first_error}. "
+                      f"Answer again with valid {schema.__name__}.")
         try:
             return deps.llm.generate(system, retry_user, schema, model)
         except (ValidationError, LLMError) as second_error:

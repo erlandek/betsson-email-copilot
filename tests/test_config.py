@@ -1,6 +1,7 @@
 import pytest
 from pydantic import ValidationError
 
+from assistant.agents.triage import REVIEW_CAP
 from assistant.config import Settings
 
 
@@ -25,3 +26,9 @@ def test_invalid_values_fail_fast(monkeypatch):
     monkeypatch.setenv("LLM_PROVIDER", "opneai")
     with pytest.raises(ValidationError):
         Settings(_env_file=None)
+
+
+def test_threshold_stays_above_the_review_cap():
+    # Fraud, lookalike and spam-override emails are capped at REVIEW_CAP; below the threshold they reach a human.
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None, confidence_threshold=REVIEW_CAP)
